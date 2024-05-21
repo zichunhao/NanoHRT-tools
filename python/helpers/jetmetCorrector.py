@@ -35,15 +35,18 @@ def _sf(vals, syst='nominal'):
 class JetCorrector(object):
 
     def __init__(self, globalTag, jetType, jecPath, applyResidual=True):
-        self.jecLevels = ['L2Relative', 'L3Absolute'] if 'Puppi' in jetType else [
-            'L1FastJet', 'L2Relative', 'L3Absolute']
+        # self.jecLevels = ['L2Relative', 'L3Absolute'] if 'Puppi' in jetType else [
+        #     'L1FastJet', 'L2Relative', 'L3Absolute']
+        self.jecLevels = ['L1FastJet', 'L2Relative', 'L3Absolute']
         if applyResidual:
             self.jecLevels += ['L2L3Residual']
         self.vPar = ROOT.vector(ROOT.JetCorrectorParameters)()
         logger.info('Init JetCorrector: %s, %s, %s', globalTag, jetType, str(self.jecLevels))
         for level in self.jecLevels:
-            self.vPar.push_back(ROOT.JetCorrectorParameters(os.path.join(
-                jecPath, "%s_%s_%s.txt" % (globalTag, level, jetType)), ""))
+            path = os.path.join(jecPath, "%s_%s_%s.txt" % (globalTag, level, jetType))
+            print(f"JetCorrectorINITSX: Level {level}, Path {path}")
+            self.vPar.push_back(ROOT.JetCorrectorParameters(path, ""))
+
         self.corrector = ROOT.FactorizedJetCorrector(self.vPar)
 
     def getCorrection(self, jet, rho, level=None):
@@ -154,6 +157,16 @@ class JetMETCorrector(object):
                 (316998, 'Summer19UL18_RunB_V5_DATA'),
                 (319313, 'Summer19UL18_RunC_V5_DATA'),
                 (320394, 'Summer19UL18_RunD_V5_DATA'),
+            )
+        elif self.year == 2022:
+            # TODO: update start run numbers
+            self.globalTag = 'Summer22_22Sep2023_V2_MC'
+            self.jerTag = 'Summer22_22Sep2023_JRV1_MC'
+            self.dataTags = (
+                # set the name of the tarball with a dummy run number
+                (0, 'Summer22_22Sep2023_RunCD_V1_DATA'),
+                # (start run number (inclusive), 'tag name')
+                (315252, 'Summer22_22Sep2023_RunCD_V2_DATA'),
             )
         else:
             raise RuntimeError('Invalid year: %s' % (str(self.year)))
