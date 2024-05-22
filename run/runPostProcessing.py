@@ -481,6 +481,11 @@ def submit(args, configs):
             shutil.copy2(f, args.jobdir)
     shutil.copy2(macrofile, args.jobdir)
     files_to_transfer = [os.path.abspath(f) for f in files_to_transfer]
+    
+    try:
+        proxy_path = os.environ['X509_USER_PROXY']
+    except KeyError:
+        raise RuntimeError('No grid proxy found. Create it and set X509_USER_PROXY.')
 
     condordesc = '''\
 universe              = vanilla
@@ -488,7 +493,8 @@ requirements          = (Arch == "X86_64") && (OpSys == "LINUX")
 request_memory        = {request_memory}
 request_disk          = 10000000
 executable            = {scriptfile}
-arguments             = $(jobid)
+proxy_path            = {proxy_path}
+arguments             = $(jobid) $(proxy_path)
 transfer_input_files  = {files_to_transfer}
 output                = {jobdir}/$(jobid).out
 error                 = {jobdir}/$(jobid).err
@@ -509,6 +515,7 @@ periodic_release      = (NumJobStarts < 3) && ((CurrentTime - EnteredCurrentStat
 
 queue jobid from {jobids_file}
 '''.format(scriptfile=os.path.abspath(scriptfile),
+           proxy_path=proxy_path,
            files_to_transfer=','.join(files_to_transfer),
            jobdir=os.path.abspath(args.jobdir),
            # when outputdir is on EOS, disable file transfer as file is manually copied to EOS in processor.py

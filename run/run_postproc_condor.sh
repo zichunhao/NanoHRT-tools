@@ -12,6 +12,10 @@ ls -l
 
 jobid=$1
 
+export X509_USER_PROXY=$2
+voms-proxy-info -all
+voms-proxy-info -all -file $2
+
 source /cvmfs/cms.cern.ch/cmsset_default.sh
 tar -xf CMSSW*.tar.gz --warning=no-timestamp
 
@@ -55,7 +59,7 @@ ls -l
 
 export MLAS_DYNAMIC_CPU_ARCH=99
 export TMPDIR=`pwd`
-python3 processor.py $jobid
+python3 processor.py $jobid $proxy
 status=$?
 
 ls -l
