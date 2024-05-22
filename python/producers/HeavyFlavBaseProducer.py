@@ -254,6 +254,10 @@ class HeavyFlavBaseProducer(Module, object):
                 self.out.branch(prefix + "ParticleNet_XbbVsQCD", "F")
                 self.out.branch(prefix + "ParticleNet_XccVsQCD", "F")
                 self.out.branch(prefix + "ParticleNet_XccOrXqqVsQCD", "F")
+                self.out.branch(prefix + "ParticleNetLegacy_XbbVsQCD", "F")
+                self.out.branch(prefix + "ParticleNetLegacy_XccVsQCD", "F")
+                self.out.branch(prefix + "ParticleNetLegacy_XccOrXqqVsQCD", "F")
+
             # Additional tagger scores from NanoAODv9
             self.out.branch(prefix + "DeepAK8MD_HbbvsQCD", "F")
             self.out.branch(prefix + "DeepAK8MD_H4qvsQCD", "F")
@@ -717,8 +721,11 @@ class HeavyFlavBaseProducer(Module, object):
                 j.pn_XbbVsQCD = j.particleNet_XbbVsQCD
                 j.pn_XccVsQCD = j.particleNet_XccVsQCD
                 pn_XqqVsQCD = j.particleNet_XqqVsQCD
-                # j.pn_QCD = j.particleNet_QCD
                 j.pn_XccOrXqqVsQCD = j.pn_XccVsQCD + pn_XqqVsQCD
+                # legacy scores
+                j.pn_legacy_XbbVsQCD = convert_prob(j, ['legacy_Xbb'], ['legacy_QCD'], prefix='pn_')
+                j.pn_legacy_XccVsQCD = convert_prob(j, ['legacy_Xcc'], ['legacy_QCD'], prefix='pn_')
+                j.pn_legacy_XccOrXqqVsQCD = convert_prob(j, ['legacy_Xcc', 'legacy_Xqq'], ['legacy_QCD'], prefix='pn_')
 
     def evalMassRegression(self, event, jets):
         for j in jets:
@@ -895,9 +902,15 @@ class HeavyFlavBaseProducer(Module, object):
                 self.out.fillBranch(prefix + "ParticleNetLegacy_Xcc", fj.pn_legacy_Xcc)
                 self.out.fillBranch(prefix + "ParticleNetLegacy_Xqq", fj.pn_legacy_Xqq)
                 self.out.fillBranch(prefix + "ParticleNetLegacy_QCD", fj.pn_legacy_QCD)
+
                 self.out.fillBranch(prefix + "ParticleNet_XbbVsQCD", fj.pn_XbbVsQCD)
                 self.out.fillBranch(prefix + "ParticleNet_XccVsQCD", fj.pn_XccVsQCD)
                 self.out.fillBranch(prefix + "ParticleNet_XccOrXqqVsQCD", fj.pn_XccOrXqqVsQCD)
+
+                self.out.fillBranch(prefix + "ParticleNetLegacy_XbbVsQCD", fj.pn_legacy_XbbVsQCD)
+                self.out.fillBranch(prefix + "ParticleNetLegacy_XccVsQCD", fj.pn_legacy_XccVsQCD)
+                self.out.fillBranch(prefix + "ParticleNetLegacy_XccOrXqqVsQCD", fj.pn_legacy_XccOrXqqVsQCD)
+                
 
             if self._opts['run_tagger']:
                 self.out.fillBranch(prefix + "origParticleNetMD_XccVsQCD",
