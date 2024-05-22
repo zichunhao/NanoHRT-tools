@@ -44,7 +44,7 @@ class JetCorrector(object):
         logger.info('Init JetCorrector: %s, %s, %s', globalTag, jetType, str(self.jecLevels))
         for level in self.jecLevels:
             path = os.path.join(jecPath, "%s_%s_%s.txt" % (globalTag, level, jetType))
-            print(f"JetCorrectorINITSX: Level {level}, Path {path}")
+            logging.debug(f"JetCorrector.__init__: Level {level}, Path {path}")
             self.vPar.push_back(ROOT.JetCorrectorParameters(path, ""))
 
         self.corrector = ROOT.FactorizedJetCorrector(self.vPar)

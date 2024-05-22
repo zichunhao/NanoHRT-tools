@@ -400,8 +400,6 @@ def submit(args, configs):
     logging.info('Preparing jobs...\n  - modules: %s\n  - cut: %s\n  - outputdir: %s' %
                  (str(args.imports), args.cut, args.outputdir))
 
-    print ("preparing jobs")
-
     scriptfile = os.path.join(os.path.dirname(__file__), 'run_postproc_condor.sh')
     macrofile = os.path.join(os.path.dirname(__file__), 'processor.py')
     metadatafile = os.path.join(args.jobdir, args.metadata)
@@ -413,9 +411,6 @@ def submit(args, configs):
         for cfgname in configs:
             cfgpath = os.path.join(args.jobdir, cfgname)
             configfiles.append(cfgpath)
-
-
-    print ("start")
 
     if not args.resubmit:
         # create jobdir
@@ -542,6 +537,8 @@ queue jobid from {jobids_file}
 def run_add_weight(args):
     if args.weight_file:
         xsec_dict = parse_sample_xsec(args.weight_file)
+        logging.info(f"Loaded xsec info from {args.weight_file}")
+        logging.info(f"xsec_dict: {xsec_dict}")
 
     import subprocess
     md = load_metadata(args)
