@@ -69,6 +69,9 @@ def _process(args):
         args.weight_file = 'samples/xsec_2017.conf'
     elif year >= 2022:
         args.weight_file = 'samples/xsec_run3.py'
+    else:
+        raise RuntimeError('Year not supported: %d' % year)
+    logging.info(f"year={year}, weight_file={args.weight_file}")
 
     basename = os.path.basename(args.outputdir) + '_' + args.jet_type + '_' + channel + '_' + str(year)
     args.outputdir = os.path.join(os.path.dirname(args.outputdir), basename, 'data' if args.run_data else 'mc')
