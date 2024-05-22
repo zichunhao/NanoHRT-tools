@@ -55,14 +55,20 @@ def _process(args):
             default_config['mass_regression_versions'] = ['ak8V01a', 'ak8V01b', 'ak8V01c']
         logging.info('Will run mass regression version(s): %s' % ','.join(default_config['mass_regression_versions']))
 
-    year = int(args.year)
+    try:
+        year = int(args.year)
+    except ValueError:
+        # e.g. 2022EE
+        year = int(args.year[:5])
     channel = args.channel
     default_config['year'] = year
     default_config['channel'] = channel
     if channel in ('qcd', 'photon'):
         default_config['sfbdt_threshold'] = args.sfbdt
-
-    args.weight_file = 'samples/xsec_2017.conf'
+    if year in (2017, 2018):
+        args.weight_file = 'samples/xsec_2017.conf'
+    elif year >= 2022:
+        args.weight_file = 'samples/xsec_run3.py'
 
     basename = os.path.basename(args.outputdir) + '_' + args.jet_type + '_' + channel + '_' + str(year)
     args.outputdir = os.path.join(os.path.dirname(args.outputdir), basename, 'data' if args.run_data else 'mc')
