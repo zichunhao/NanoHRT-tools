@@ -136,6 +136,7 @@ class HeavyFlavBaseProducer(Module, object):
                     version=ver, cache_suffix='mass') for ver in self._opts['mass_regression_versions']]
 
         # https://twiki.cern.ch/twiki/bin/viewauth/CMS/BtagRecommendation
+        # dummy values for 2022 and future (not important)
         self.DeepJet_WP_L = {2015: 0.0508, 2016: 0.0480, 2017: 0.0532, 2018: 0.0490, 2022: 0.0490}[self.year]
         self.DeepJet_WP_M = {2015: 0.2598, 2016: 0.2489, 2017: 0.3040, 2018: 0.2783, 2022: 0.2783}[self.year]
         self.DeepJet_WP_T = {2015: 0.6502, 2016: 0.6377, 2017: 0.7476, 2018: 0.7100, 2022: 0.7100}[self.year]
