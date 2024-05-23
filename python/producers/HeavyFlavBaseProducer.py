@@ -257,6 +257,7 @@ class HeavyFlavBaseProducer(Module, object):
                 self.out.branch(prefix + "ParticleNetLegacy_XbbVsQCD", "F")
                 self.out.branch(prefix + "ParticleNetLegacy_XccVsQCD", "F")
                 self.out.branch(prefix + "ParticleNetLegacy_XccOrXqqVsQCD", "F")
+                self.out.branch(prefix + "ParticleNetLegacy_mass", "F")
 
             # Additional tagger scores from NanoAODv9
             self.out.branch(prefix + "DeepAK8MD_HbbvsQCD", "F")
@@ -910,6 +911,8 @@ class HeavyFlavBaseProducer(Module, object):
                 self.out.fillBranch(prefix + "ParticleNetLegacy_XbbVsQCD", fj.pn_legacy_XbbVsQCD)
                 self.out.fillBranch(prefix + "ParticleNetLegacy_XccVsQCD", fj.pn_legacy_XccVsQCD)
                 self.out.fillBranch(prefix + "ParticleNetLegacy_XccOrXqqVsQCD", fj.pn_legacy_XccOrXqqVsQCD)
+                
+                self.out.fillBranch(prefix + "ParticleNetLegacy_mass", fj.pn_particleNetLegacy_mass)
                 
 
             if self._opts['run_tagger']:
