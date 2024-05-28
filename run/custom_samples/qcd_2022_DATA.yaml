@@ -1,2 +1,7 @@
 jetmet:
  - JetMET
+jetht:
+ - JetHT_Run2022B
+ - JetHT_Run2022C
+#  - JetMET_Run2022C
+#  - JetMET_Run2022D
