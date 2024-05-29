@@ -32,8 +32,27 @@ Instructions to run the nanoAOD postprocessor can be found at [nanoAOD-tools](ht
 cd PhysicsTools/NanoHRTTools/run
 ```
 
-##### Make trees for MC performance study:
+##### Make trees to produce ntuples for heavy flavour tagging (bb/cc) measurement
 
+```bash
+python runHeavyFlavTrees.py -o /eos/<some-eos-path-on-lxplus>/20230926_ULNanoV9 --jet-type ak8 --channel qcd --year 2018 --sfbdt 0 -n 1
+python runHeavyFlavTrees.py -o /eos/<some-eos-path-on-lxplus>/20230926_ULNanoV9 --jet-type ak8 --channel qcd --year 2018 --run-data --sfbdt 0 -n 1
+
+python runHeavyFlavTrees.py -o /eos/<some-eos-path-on-lxplus>/20230926_ULNanoV9 --jet-type ak8 --channel qcd --year 2017 --sfbdt 0 -n 1
+python runHeavyFlavTrees.py -o /eos/<some-eos-path-on-lxplus>/20230926_ULNanoV9 --jet-type ak8 --channel qcd --year 2017 --run-data --sfbdt 0 -n 1
+
+python runHeavyFlavTrees.py -o /eos/<some-eos-path-on-lxplus>/20230926_ULNanoV9 --jet-type ak8 --channel qcd --year 2016 --sfbdt 0 -n 1
+python runHeavyFlavTrees.py -o /eos/<some-eos-path-on-lxplus>/20230926_ULNanoV9 --jet-type ak8 --channel qcd --year 2016 --run-data --sfbdt 0 -n 1
+
+python runHeavyFlavTrees.py -o /eos/<some-eos-path-on-lxplus>/20230926_ULNanoV9 --jet-type ak8 --channel qcd --year 2015 --sfbdt 0 -n 1
+python runHeavyFlavTrees.py -o /eos/<some-eos-path-on-lxplus>/20230926_ULNanoV9 --jet-type ak8 --channel qcd --year 2015 --run-data --sfbdt 0 -n 1
+```
+
+where, `/eos/<some-eos-path-on-lxplus>/` is some path on EOS you have write access to.
+
+Follow the instruction on screen to submit condor jobs. After all condor jobs finish, run the same command appended with ` --post`, to merge the trees.
+
+<!-- 
 ```bash
 python runPostProcessing.py [-i /path/of/input] -o /path/to/output -d datasets.yaml --friend 
 -I PhysicsTools.NanoHRTTools.producers.hrtMCTreeProducer hrtMCTree -n 1
