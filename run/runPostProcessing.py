@@ -170,6 +170,13 @@ def load_dataset_file(dataset_file):
 
 
 def parse_sample_xsec(cfgfile):
+    if cfgfile.endswith('.py'):
+        # directly import the dict called xsecs
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('xsecs', cfgfile)
+        xsecs = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(xsecs)
+        return xsecs.xsecs
     xsec_dict = {}
     with open(cfgfile) as f:
         for l in f:
@@ -214,11 +221,13 @@ def tar_cmssw(tarball_suffix, batchMode=False):
     if os.path.exists(cmsswtar):
         if batchMode:
             return
-        ans = input('CMSSW tarball %s already exists, remove? [yn] ' % cmsswtar)
-        if ans.lower()[0] == 'y':
-            os.remove(cmsswtar)
-        else:
-            return
+        # ans = input('CMSSW tarball %s already exists, remove? [yn] ' % cmsswtar)
+        # if ans.lower()[0] == 'y':
+        #     os.remove(cmsswtar)
+        # else:
+        #     return
+        # TODO: change it back
+        os.remove(cmsswtar)
 
     def exclude(tarinfo):
         exclude_patterns = ['/.git/', '/tmp/', '/jobs.*/', '/logs/', ]
@@ -418,19 +427,23 @@ def submit(args, configs):
             if args.batch:
                 logging.warning('jobdir %s already exists! Will not submit new jobs!' % args.jobdir)
                 return
-            ans = input('jobdir %s already exists, remove? [yn] ' % args.jobdir)
-            if ans.lower()[0] == 'y':
-                shutil.rmtree(args.jobdir)
-            else:
-                sys.exit(1)
+            # ans = input('jobdir %s already exists, remove? [yn] ' % args.jobdir)
+            # if ans.lower()[0] == 'y':
+            #     shutil.rmtree(args.jobdir)
+            # else:
+            #     sys.exit(1)
+            # TODO: change it back
+            shutil.rmtree(args.jobdir)
         os.makedirs(args.jobdir)
 
         # create outputdir
         if os.path.exists(joboutputdir):
             if not args.batch:
-                ans = input('outputdir %s already exists, continue? [yn] ' % joboutputdir)
-                if ans.lower()[0] == 'n':
-                    sys.exit(1)
+                # ans = input('outputdir %s already exists, continue? [yn] ' % joboutputdir)
+                # if ans.lower()[0] == 'n':
+                #     sys.exit(1)
+                # TODO: change it back
+                pass
         else:
             os.makedirs(joboutputdir)
 
@@ -542,6 +555,7 @@ queue jobid from {jobids_file}
 
 
 def run_add_weight(args):
+    logging.info(f"run_add_weight: args={args}")
     if args.weight_file:
         xsec_dict = parse_sample_xsec(args.weight_file)
         logging.info(f"Loaded xsec info from {args.weight_file}")
@@ -565,16 +579,30 @@ def run_add_weight(args):
     for samp in md['samples']:
         outfile = '{parts_dir}/{samp}_tree.root'.format(
             parts_dir=tmp_parts_dir if args.use_tmpdir else parts_dir, samp=samp)
-        cmd = 'haddnano.py {outfile} {outputdir}/pieces/{samp}_*_tree.root'.format(
+        # check if "haddnano.py" is available
+        if not os.path.exists('haddnano.py'):
+            # wget it
+            logging.info('Downloading haddnano.py...')
+            subprocess.Popen('wget https://raw.githubusercontent.com/cms-nanoAOD/nanoAOD-tools/master/scripts/haddnano.py', shell=True).communicate()
+        
+        cmd = 'alias python=python3; python3 haddnano.py {outfile} {outputdir}/pieces/{samp}_*_tree.root'.format(
             outfile=outfile, outputdir=args.outputdir, samp=samp)
         logging.debug('...' + cmd)
-        p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        log = p.communicate()[0]
-        log_lower = log.lower().decode('utf-8')
-        if 'error' in log_lower or 'fail' in log_lower:
-            logging.error(log)
+        # p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        # log = p.communicate()[0]
+        # log_lower = log.lower().decode('utf-8')
+        # if 'error' in log_lower or 'fail' in log_lower:
+        #     logging.error(log)
+        p = subprocess.Popen(
+            cmd,
+            shell=True, 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.PIPE, 
+            text=True
+        )
+        stdout, stderr = p.communicate()
         if p.returncode != 0:
-            raise RuntimeError('Hadd failed on %s!' % samp)
+            raise RuntimeError(f'Hadd failed with error message: {stderr.strip()}')
 
         # add weight
         if args.weight_file:
