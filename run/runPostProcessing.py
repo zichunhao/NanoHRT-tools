@@ -601,22 +601,26 @@ def run_add_weight(args):
             text=True
         )
         stdout, stderr = p.communicate()
+        # print(f"stdout: {stdout}")
         if p.returncode != 0:
             raise RuntimeError(f'Hadd failed with error message: {stderr.strip()}')
 
         # add weight
         if args.weight_file:
-            try:
-                xsec = xsec_dict[samp]
+            if ('-' not in samp and '_' not in samp ) or ('JetHT' in samp) or ('JetMET' in samp): 
+                # data
+                logging.info('Not adding weight to sample %s' % samp)
+            elif args.run_data:
+                logging.info('Not adding weight to sample %s because --run-data is called' % samp)
+            else:
+                try:
+                    xsec = xsec_dict[samp]
+                except KeyError as e:
+                    logging.error('Cannot find xsec for sample %s in %s' % samp, args.weight_file)
+                    raise e
                 if xsec is not None:
                     logging.info('Adding xsec weight to file %s, xsec=%f' % (outfile, xsec))
                     add_weight_branch(outfile, xsec)
-            except KeyError as e:
-                if '-' not in samp and '_' not in samp:
-                    # data
-                    logging.info('Not adding weight to sample %s' % samp)
-                else:
-                    raise e
 
         if args.use_tmpdir:
             shutil.copy(outfile, parts_dir)
