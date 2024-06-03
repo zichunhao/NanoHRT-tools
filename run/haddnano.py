@@ -53,6 +53,7 @@ for e in fileHandles[0].GetListOfKeys():
         obj = obj.CloneTree(-1, "fast" if goFast else "")
         branchNames = set([x.GetName() for x in obj.GetListOfBranches()])
     for fh in fileHandles[1:]:
+        print(f"file handle: {fh}")
         otherObj = fh.GetListOfKeys().FindObject(name).ReadObj()
         inputs.Add(otherObj)
         if isTree and obj.GetName() == 'Events':
@@ -62,8 +63,19 @@ for e in fileHandles[0].GetListOfKeys():
             missingBranches = list(branchNames - otherBranches)
             additionalBranches = list(otherBranches - branchNames)
             print("missing: " + str(missingBranches) + "\n Additional: " + str(additionalBranches))
+            
+            has_none = False
             for br in missingBranches:
                 # fill "Other"
+                # check if brObj is nil
+                if obj.GetListOfBranches().FindObject(br) == None:
+                    print(f"Branch {br} not found in main tree")
+                    has_none = True
+                    continue
+            if has_none:
+                continue
+            
+            for br in missingBranches:
                 zeroFill(otherObj, br, obj.GetListOfBranches().FindObject(br))
             for br in additionalBranches:
                 # fill main
