@@ -115,6 +115,8 @@ xsecs["TbarWplustoLNu2Q"] = 10.7
 xsecs["TWminustoLNu2Q"] = 10.7
 xsecs["TbarWplusto2L2Nu"] = 2.62
 xsecs["TWminusto2L2Nu"] = 2.62
+xsecs["TbarBQ_t-channel_4FS_TuneCP5_13p6TeV_powheg-madspin-pythia8"] = xsecs["TbarBQ_t-channel_4FS"]
+xsecs["TBbarQ_t-channel_4FS_TuneCP5_13p6TeV_powheg-madspin-pythia8"] = xsecs["TBbarQ_t-channel_4FS"]
 
 # Higgs
 # SX: took XSDB NLO number (0.5246) and multiplied it by the NNLO/NLO ratio for inclusive ggH from 13 TeV
