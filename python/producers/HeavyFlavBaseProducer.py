@@ -17,13 +17,13 @@ logger = logging.getLogger('nano')
 configLogger('nano', loglevel=logging.INFO)
 
 lumi_dict = {
-    2015: 19.52,
-    2016: 16.81, 
-    2017: 41.48, 
-    2018: 59.83, 
-    2022: 7971.4 / 1000,  # 5.0707 + 3.0063
+    "2015": 19.52,
+    "2016": 16.81, 
+    "2017": 41.48, 
+    "2018": 59.83, 
+    "2022": 7971.4 / 1000,  # 5.0707 + 3.0063
     "2022EE": 26337.0 / 1000,
-    2023: 17981.0 / 1000,  # runC
+    "2023": 17981.0 / 1000,  # runC
     "2023BPix": 9516.0 / 1000,  # runD
 }
 
@@ -55,11 +55,12 @@ class HeavyFlavBaseProducer(Module, object):
     def __init__(self, channel, **kwargs):
         self._channel = channel  # 'qcd', 'photon', 'inclusive', 'muon'
         try:
-            self.year = int(kwargs['year'])
+            self.year_int = int(kwargs['year'])
         except ValueError:
-            self.year = int(kwargs['year'][:5])
-        self.is_run3 = (self.year >= 2022)
-        self.year_str = kwargs['year']
+            # e.g. 2022EE, 2023BPix
+            self.year_int = int(kwargs['year'][:4])
+        self.is_run3 = (self.year_int >= 2022)
+        self.year = kwargs['year']
         self.jetType = kwargs.get('jetType', 'ak8').lower()
         self._jmeSysts = {'jec': False, 'jes': None, 'jes_source': '', 'jes_uncertainty_file_prefix': '',
                           'jer': None, 'jmr': None, 'met_unclustered': None, 'smearMET': True, 'applyHEMUnc': False,
@@ -137,9 +138,9 @@ class HeavyFlavBaseProducer(Module, object):
 
         # https://twiki.cern.ch/twiki/bin/viewauth/CMS/BtagRecommendation
         # dummy values for 2022 and future (not important)
-        self.DeepJet_WP_L = {2015: 0.0508, 2016: 0.0480, 2017: 0.0532, 2018: 0.0490, 2022: 0.0490}[self.year]
-        self.DeepJet_WP_M = {2015: 0.2598, 2016: 0.2489, 2017: 0.3040, 2018: 0.2783, 2022: 0.2783}[self.year]
-        self.DeepJet_WP_T = {2015: 0.6502, 2016: 0.6377, 2017: 0.7476, 2018: 0.7100, 2022: 0.7100}[self.year]
+        self.DeepJet_WP_L = {"2015": 0.0508, "2016": 0.0480, "2017": 0.0532, "2018": 0.0490, "2022": 0.0490, "2022EE": 0.0490, "2023": 0.0490, "2023BPix": 0.049}[self.year]
+        self.DeepJet_WP_M = {"2015": 0.2598, "2016": 0.2489, "2017": 0.3040, "2018": 0.2783, "2022": 0.2783, "2022EE": 0.2783, "2023": 0.2783, "2023BPix": 0.2783}[self.year]
+        self.DeepJet_WP_T = {"2015": 0.6502, "2016": 0.6377, "2017": 0.7476, "2018": 0.7100, "2022": 0.7100, "2022EE": 0.7100, "2023": 0.7100, "2023BPix": 0.7100}[self.year]
 
     def beginJob(self):
         if self._needsJMECorr:
@@ -742,8 +743,13 @@ class HeavyFlavBaseProducer(Module, object):
 
     def fillBaseEventInfo(self, event):
         self.out.fillBranch("jetR", self._jetConeSize)
-        self.out.fillBranch("year", self.year)
-        self.out.fillBranch("lumiwgt", lumi_dict[self.year_str])
+        if self.year == "2022EE":
+            self.out.fillBranch("year", 20221)
+        elif self.year == "2023BPix":
+            self.out.fillBranch("year", 20231)
+        else:
+            self.out.fillBranch("year", self.year_int)
+        self.out.fillBranch("lumiwgt", lumi_dict[self.year])
 
         met_filters = bool(
             event.Flag_goodVertices and
@@ -755,12 +761,12 @@ class HeavyFlavBaseProducer(Module, object):
             event.Flag_BadPFMuonDzFilter and
             event.Flag_eeBadScFilter
         )
-        if self.year in (2017, 2018):
+        if self.year_int in (2017, 2018):
             met_filters = met_filters and event.Flag_ecalBadCalibFilter
         self.out.fillBranch("passmetfilters", met_filters)
 
         # L1 prefire weights
-        if self.year <= 2017:
+        if self.year_int <= 2017:
             self.out.fillBranch("l1PreFiringWeight", event.L1PreFiringWeight_Nom)
             self.out.fillBranch("l1PreFiringWeightUp", event.L1PreFiringWeight_Up)
             self.out.fillBranch("l1PreFiringWeightDown", event.L1PreFiringWeight_Dn)

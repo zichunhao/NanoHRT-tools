@@ -33,12 +33,14 @@ cut_dict_ak15 = {
 }
 
 golden_json = {
-    2015: 'Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt',
-    2016: 'Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt',
-    2017: 'Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt',
-    2018: 'Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt',
-    2022: 'Cert_Collisions2022_355100_362760_Golden.json',
-    2023: 'Cert_Collisions2023_366442_370790_Golden.json', 
+    "2015": 'Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt',
+    "2016": 'Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt',
+    "2017": 'Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt',
+    "2018": 'Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt',
+    "2022": 'Cert_Collisions2022_355100_362760_Golden.json',
+    "2022EE": 'Cert_Collisions2022_355100_362760_Golden.json',
+    "2023": 'Cert_Collisions2023_366442_370790_Golden.json', 
+    "2023BPix": 'Cert_Collisions2023_366442_370790_Golden.json', 
 }
 
 
@@ -56,18 +58,19 @@ def _process(args):
         logging.info('Will run mass regression version(s): %s' % ','.join(default_config['mass_regression_versions']))
 
     try:
-        year = int(args.year)
+        year_int = int(args.year)
     except ValueError:
         # e.g. 2022EE
-        year = int(args.year[:5])
+        year_int = int(args.year[:4])
+    year = args.year
     channel = args.channel
     default_config['year'] = year
     default_config['channel'] = channel
     if channel in ('qcd', 'photon'):
         default_config['sfbdt_threshold'] = args.sfbdt
-    if year in (2017, 2018):
+    if year_int in (2017, 2018):
         args.weight_file = 'samples/xsec_2017.conf'
-    elif year >= 2022:
+    elif year_int >= 2022:
         args.weight_file = 'samples/xsecs_run3.py'
     else:
         raise RuntimeError('Year not supported: %d' % year)
@@ -83,7 +86,7 @@ def _process(args):
             '$CMSSW_BASE/src/PhysicsTools/NanoHRTTools/data/JSON/%s' % golden_json[year])
         args.json = golden_json[year]
     else:
-        args.datasets = '%s/%s_%d_MC.yaml' % (args.sample_dir, channel, year)
+        args.datasets = '%s/%s_%s_MC.yaml' % (args.sample_dir, channel, year)
 
     if args.jet_type == 'ak15':
         args.cut = cut_dict_ak15[channel]
@@ -93,7 +96,7 @@ def _process(args):
     args.imports = [('PhysicsTools.NanoHRTTools.producers.HeavyFlavSFTreeProducer', 'heavyFlavSFTreeFromConfig')]
     if not args.run_data:
         args.imports.extend([('PhysicsTools.NanoAODTools.postprocessing.modules.common.puWeightProducer',
-                              'puWeight_UL2016' if year == 2015 else 'puWeight_UL%d' % year),
+                              'puWeight_UL2016' if year == "2015" else 'puWeight_UL%s' % year),
                              ('PhysicsTools.NanoHRTTools.producers.topPtWeightProducer', 'topPtWeight')])
 
     # data, or just nominal MC
@@ -188,7 +191,7 @@ def main():
     parser.add_argument('--year',
                         type=str,
                         required=True,
-                        help='Year: 2015 (2016 preVFP), 2016 (2016 postVFP), 2017, 2018, or comma separated list e.g., `2016,2017,2018`'
+                        help='Year: 2015 (2016 preVFP), 2016 (2016 postVFP), 2017, 2018, 2022, 2022EE, 2023, 2023BPix, or comma separated list e.g., `2016,2017,2018`'
                         )
 
     parser.add_argument('--sample-dir',
