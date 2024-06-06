@@ -170,16 +170,11 @@ for key, value in hh.items():
     xsecs[f"{key}_Private"] = value
     xsecs[f"{key}_TSG_Pu60"] = value
 
-xsecs["GluGlutoHHto4B_kl-0p00_kt-1p00_c2-0p00_LHEweights_TuneCP5_13p6TeV_powheg-pythia8"] = xsecs["GluGlutoHHto4B_kl-0p00_kt-1p00_c2-0p00_TuneCP5_13p6TeV"]
-xsecs["GluGlutoHHto4B_kl-0p00_kt-1p00_c2-1p00_LHEweights_TuneCP5_13p6TeV_powheg-pythia8"] = xsecs["GluGlutoHHto4B_kl-0p00_kt-1p00_c2-1p00_TuneCP5_13p6TeV"]
+# 2022
 xsecs["GluGlutoHHto4B_kl-1p00_kt-1p00_c2-0p00_LHEweights_TuneCP5_13p6TeV_powheg-pythia8"] = xsecs["GluGlutoHHto4B_kl-1p00_kt-1p00_c2-0p00_TuneCP5_13p6TeV"]
-xsecs["GluGlutoHHto4B_kl-1p00_kt-1p00_c2-0p10_LHEweights_TuneCP5_13p6TeV_powheg-pythia8"] = xsecs["GluGlutoHHto4B_kl-1p00_kt-1p00_c2-0p10_TuneCP5_13p6TeV"]
-xsecs["GluGlutoHHto4B_kl-1p00_kt-1p00_c2-0p35_LHEweights_TuneCP5_13p6TeV_powheg-pythia8"] = xsecs["GluGlutoHHto4B_kl-1p00_kt-1p00_c2-0p35_TuneCP5_13p6TeV"]
-xsecs["GluGlutoHHto4B_kl-1p00_kt-1p00_c2-3p00_LHEweights_TuneCP5_13p6TeV_powheg-pythia8"] = xsecs["GluGlutoHHto4B_kl-1p00_kt-1p00_c2-3p00_TuneCP5_13p6TeV"]
-xsecs["GluGlutoHHto4B_kl-1p00_kt-1p00_c2-m2p00_LHEweights_TuneCP5_13p6TeV_powheg-pythia8"] = xsecs["GluGlutoHHto4B_kl-1p00_kt-1p00_c2-m2p00_TuneCP5_13p6TeV"]
-xsecs["GluGlutoHHto4B_kl-2p45_kt-1p00_c2-0p00_LHEweights_TuneCP5_13p6TeV_powheg-pythia8"] = xsecs["GluGlutoHHto4B_kl-2p45_kt-1p00_c2-0p00_TuneCP5_13p6TeV"]
-xsecs["GluGlutoHHto4B_kl-5p00_kt-1p00_c2-0p00_LHEweights_TuneCP5_13p6TeV_powheg-pythia8"] = xsecs["GluGlutoHHto4B_kl-5p00_kt-1p00_c2-0p00_TuneCP5_13p6TeV"]
 
+# {2022EE, 2023, 2023BPix}
+xsecs["GluGlutoHHto4B_kl-1p00_kt-1p00_c2-0p00_TuneCP5_13p6TeV_powheg-pythia8"] = xsecs["GluGlutoHHto4B_kl-1p00_kt-1p00_c2-0p00_TuneCP5_13p6TeV"]
 
 xsecs["VBFHHto4B_CV-1_C2V-1_C3-1_TuneCP5_13p6TeV_madgraph-pythia8"] = 0.001904 * BR_HBB * BR_HBB
 xsecs["VBFHHto4B_CV-1_C2V-1_C3-2_TuneCP5_13p6TeV_madgraph-pythia8"] = 0.001588 * BR_HBB * BR_HBB
