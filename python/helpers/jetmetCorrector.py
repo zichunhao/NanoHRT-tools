@@ -199,8 +199,8 @@ class JetMETCorrector(object):
         elif self.year in (2023, "2023"):
             # JES MC: https://github.com/cms-jet/JECDatabase/blob/master/tarballs/Summer23Prompt23_V1_MC.tar.gz
             self.globalTag = 'Summer23Prompt23_V1_MC'
-            # JER MC: https://github.com/cms-jet/JRDatabase/blob/master/tarballs/Summer23Prompt23RunCv1234_JRV1_MC.tar.gz
-            self.jerTag = 'Summer23Prompt23RunCv1234_JRV1_MC'
+            # JER MC: https://github.com/cms-jet/JRDatabase/blob/master/tarballs/Summer23Prompt23_RunCv1234_JRV1_MC.tar.gz
+            self.jerTag = 'Summer23Prompt23_RunCv1234_JRV1_MC'
             # JES data
             # Run number ranges: https://twiki.cern.ch/twiki/bin/viewauth/CMS/PdmVRun3Analysis#2023_Era_definition
             self.dataTags = (
