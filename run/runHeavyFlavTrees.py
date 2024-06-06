@@ -73,7 +73,7 @@ def _process(args):
     elif year_int >= 2022:
         args.weight_file = 'samples/xsecs_run3.py'
     else:
-        raise RuntimeError('Year not supported: %d' % year)
+        raise RuntimeError('Year not supported: %s' % year)
     logging.info(f"year={year}, weight_file={args.weight_file}")
 
     basename = os.path.basename(args.outputdir) + '_' + args.jet_type + '_' + channel + '_' + str(year)
@@ -81,7 +81,7 @@ def _process(args):
     args.jobdir = os.path.join('jobs_%s' % basename, 'data' if args.run_data else 'mc')
 
     if args.run_data:
-        args.datasets = '%s/%s_%d_DATA.yaml' % (args.sample_dir, channel, year)
+        args.datasets = '%s/%s_%s_DATA.yaml' % (args.sample_dir, channel, year)
         args.extra_transfer = os.path.expandvars(
             '$CMSSW_BASE/src/PhysicsTools/NanoHRTTools/data/JSON/%s' % golden_json[year])
         args.json = golden_json[year]
