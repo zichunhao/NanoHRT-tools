@@ -607,7 +607,7 @@ def run_add_weight(args):
 
         # add weight
         if args.weight_file:
-            if ('-' not in samp and '_' not in samp ) or ('JetHT' in samp) or ('JetMET' in samp): 
+            if ('-' not in samp and '_' not in samp ) or ('jetht' in samp.lower()) or ('jetmet' in samp.lower()): 
                 # data
                 logging.info('Not adding weight to sample %s' % samp)
             elif args.run_data:
