@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -xe
 
 alias python=python3;
 wget https://raw.githubusercontent.com/cms-nanoAOD/nanoAOD-tools/master/scripts/haddnano.py;
@@ -11,9 +11,11 @@ echo "args: $@"
 ls -l
 
 jobid=$1
+echo "jobid: $jobid"
+proxy_path=$2
+echo "proxy_path: $proxy_path"
 
-export X509_USER_PROXY=$2
-voms-proxy-info -all
+export X509_USER_PROXY=$proxy
 voms-proxy-info -all -file $2
 
 source /cvmfs/cms.cern.ch/cmsset_default.sh
@@ -59,7 +61,7 @@ ls -l
 
 export MLAS_DYNAMIC_CPU_ARCH=99
 export TMPDIR=`pwd`
-python3 processor.py $jobid $proxy
+python3 processor.py $jobid
 status=$?
 
 touch done.cc
