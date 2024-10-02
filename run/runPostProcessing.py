@@ -246,7 +246,7 @@ def tar_cmssw(tarball_suffix, batchMode=False):
 
 
 def create_metadata_from_json(args):
-    """
+    '''
     Create metadata from JSON input
 
     Metadata is a dict including:
@@ -255,41 +255,39 @@ def create_metadata_from_json(args):
         - 'inputfiles': (dict, sample -> files)
         - 'jobs': (list of dict)
             - jobitem: (dict, keys: 'samp', 'idx', 'inputfiles')
-    """
-    import subprocess
+    '''
 
-    arg_blacklist = ["metadata", "select", "ignore", "site", "datasets"]
+    import subprocess
+    arg_blacklist = ['metadata', 'select', 'ignore', 'site', 'datasets']
     md = {k: args.__dict__[k] for k in args.__dict__ if k not in arg_blacklist}
 
     # git info
-    cmd = "git rev-parse HEAD && git status"
-    p = subprocess.Popen(
-        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-    )
-    md["git_info"] = p.communicate()[0].decode("utf-8")
+    cmd = 'git rev-parse HEAD && git status'
+    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    md['git_info'] = p.communicate()[0].decode('utf-8')
 
-    md["samples"] = []
-    md["inputfiles"] = {}
-    md["jobs"] = []
+    md['samples'] = []
+    md['inputfiles'] = {}
+    md['jobs'] = []
 
     def select_sample(dataset):
         keep = True
         if args.select:
-            sels = args.select.split(",")
+            sels = args.select.split(',')
             match = False
             for s in sels:
                 if re.search(s, dataset):
-                    logging.debug("Selecting dataset %s", dataset)
+                    logging.debug('Selecting dataset %s', dataset)
                     match = True
                     break
             if not match:
                 keep = False
         elif args.ignore:
-            vetoes = args.ignore.split(",")
+            vetoes = args.ignore.split(',')
             match = False
             for v in vetoes:
                 if re.search(v, dataset):
-                    logging.debug("Ignoring dataset %s", dataset)
+                    logging.debug('Ignoring dataset %s', dataset)
                     match = True
                     break
             if match:
@@ -299,15 +297,33 @@ def create_metadata_from_json(args):
     def get_chunks(lst, n):
         """Yield successive n-sized chunks from lst."""
         for i in range(0, len(lst), n):
-            yield lst[i : i + n]
+            yield lst[i:i + n]
 
     def strip_remote_prefix(filepath):
         """Strip the remote prefix from the filepath and ensure single leading slash."""
         stripped = re.sub(r"^root://[^/]+/?", "/", filepath)
         return "/" + stripped.lstrip("/")
 
+    def merge_paths(inputdir, filepath):
+        """Merge inputdir and filepath when there's an overlap."""
+        inputdir = inputdir.rstrip('/')
+        filepath = filepath.lstrip('/')
+        
+        # Find the longest common suffix between inputdir and the beginning of filepath
+        common_suffix = ''
+        for i in range(1, min(len(inputdir), len(filepath)) + 1):
+            if inputdir[-i:] == filepath[:i]:
+                common_suffix = filepath[:i]
+            else:
+                break
+        
+        if common_suffix:
+            return inputdir + filepath[len(common_suffix):]
+        else:
+            return os.path.join(inputdir, filepath)
+
     # Load JSON file
-    with open(args.datasets, "r") as f:
+    with open(args.datasets, 'r') as f:
         data = json.load(f)
 
     # Check if the specified year exists in the data
@@ -319,38 +335,34 @@ def create_metadata_from_json(args):
         for dataset in year_data[category]:
             if select_sample(dataset):
                 samp = f"{category}_{dataset}"
-                md["samples"].append(samp)
-
+                md['samples'].append(samp)
+                
                 # Strip remote prefix and handle files
-                filelist = [
-                    strip_remote_prefix(f) for f in year_data[category][dataset]
-                ]
+                filelist = [strip_remote_prefix(f) for f in year_data[category][dataset]]
                 if args.inputdir:
-                    # If inputdir is specified, assume local files
-                    local_filelist = []
+                    # If inputdir is specified, merge paths
+                    merged_filelist = []
                     for file_path in filelist:
-                        local_path = os.path.join(args.inputdir, file_path.lstrip("/").lstrip(args.inputdir))
-                        if os.path.exists(local_path):
-                            if os.path.getsize(local_path) < 1000:
-                                logging.warning(f"Ignoring small file: {local_path}")
+                        merged_path = merge_paths(args.inputdir, file_path)
+                        if os.path.exists(merged_path):
+                            if os.path.getsize(merged_path) < 1000:
+                                logging.warning(f'Ignoring small file: {merged_path}')
                                 continue
-                            local_filelist.append(local_path)
+                            merged_filelist.append(merged_path)
                         else:
-                            logging.warning(f"Local file not found: {local_path}")
-                    md["inputfiles"][samp] = sorted(local_filelist)
+                            logging.warning(f'File not found: {merged_path}')
+                    md['inputfiles'][samp] = sorted(merged_filelist)
                 else:
                     # Use stripped remote files
-                    md["inputfiles"][samp] = sorted(filelist)
+                    md['inputfiles'][samp] = sorted(filelist)
 
     # sort the samples
-    md["samples"] = sorted(md["samples"])
+    md['samples'] = sorted(md['samples'])
 
     # create jobs
-    for samp in md["samples"]:
-        for idx, chunk in enumerate(
-            get_chunks(md["inputfiles"][samp], args.nfiles_per_job)
-        ):
-            md["jobs"].append({"samp": samp, "idx": idx, "inputfiles": chunk})
+    for samp in md['samples']:
+        for idx, chunk in enumerate(get_chunks(md['inputfiles'][samp], args.nfiles_per_job)):
+            md['jobs'].append({'samp': samp, 'idx': idx, 'inputfiles': chunk})
 
     return md
 
