@@ -81,12 +81,16 @@ def _process(args):
     args.jobdir = os.path.join('jobs_%s' % basename, 'data' if args.run_data else 'mc')
 
     if args.run_data:
-        args.datasets = '%s/%s_%s_DATA.yaml' % (args.sample_dir, channel, year)
+        if args.datasets is None or args.datasets == '':
+            args.datasets = '%s/%s_%s_DATA.yaml' % (args.sample_dir, channel, year)
+        logging.info('Using data sample list: %s' % args.datasets)
         args.extra_transfer = os.path.expandvars(
             '$CMSSW_BASE/src/PhysicsTools/NanoHRTTools/data/JSON/%s' % golden_json[year])
         args.json = golden_json[year]
     else:
-        args.datasets = '%s/%s_%s_MC.yaml' % (args.sample_dir, channel, year)
+        if args.datasets is None or args.datasets == '':
+            args.datasets = '%s/%s_%s_MC.yaml' % (args.sample_dir, channel, year)
+        logging.info('Using MC sample list: %s' % args.datasets)
 
     if args.jet_type == 'ak15':
         args.cut = cut_dict_ak15[channel]

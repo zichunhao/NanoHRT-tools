@@ -86,6 +86,105 @@ def get_filenames(dataset, retry=3):
             return files
 
 
+def create_metadata_from_json(args):
+    """
+    Create metadata from JSON input: {year: {category: {tag: {dataset: [files]}}}}
+
+    Metadata is a dict including:
+        - options
+        - 'samples': (list)
+        - 'inputfiles': (dict, sample -> files)
+        - 'jobs': (list of dict)
+            - jobitem: (dict, keys: 'samp', 'idx', 'inputfiles')
+    """
+    import subprocess
+
+    def select_sample(dataset):
+        keep = True
+        if args.select:
+            sels = args.select.split(",")
+            match = False
+            for s in sels:
+                if re.search(s, dataset):
+                    logging.debug("Selecting dataset %s", dataset)
+                    match = True
+                    break
+            if not match:
+                keep = False
+        elif args.ignore:
+            vetoes = args.ignore.split(",")
+            match = False
+            for v in vetoes:
+                if re.search(v, dataset):
+                    logging.debug("Ignoring dataset %s", dataset)
+                    match = True
+                    break
+            if match:
+                keep = False
+        return keep
+
+    def get_chunks(lst, n):
+        """Yield successive n-sized chunks from lst."""
+        for i in range(0, len(lst), n):
+            yield lst[i : i + n]
+
+    # Initialize metadata
+    arg_blacklist = ["metadata", "select", "ignore", "site", "datasets"]
+    md = {k: args.__dict__[k] for k in args.__dict__ if k not in arg_blacklist}
+
+    # git info
+    cmd = "git rev-parse HEAD && git status"
+    p = subprocess.Popen(
+        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+    )
+    md["git_info"] = p.communicate()[0].decode("utf-8")
+
+    md["samples"] = []
+    md["inputfiles"] = {}
+    md["jobs"] = []
+
+    # Load JSON file
+    with open(args.datasets, "r") as f:
+        data = json.load(f)
+
+    # Check if the specified year exists in the data
+    if args.year not in data:
+        raise ValueError(f"Specified year {args.year} not found in the dataset")
+
+    year_data = data[args.year]
+    for category in year_data:
+        if args.run_data:
+            # Data: only need JetMet
+            if not "JetMet" in category:
+                continue
+        else:
+            # MC: don't need JetMet
+            if "JetMet" in category:
+                continue
+
+        for dataset in year_data[category]:
+            if select_sample(dataset):
+                samp = f"{category}_{dataset}"
+                md["samples"].append(samp)
+                md["inputfiles"][samp] = year_data[category][dataset]
+
+    # sort the samples
+    md["samples"] = sorted(md["samples"])
+
+    # create jobs
+    for samp in md["samples"]:
+        # sort the input list
+        md["inputfiles"][samp] = sorted(md["inputfiles"][samp])
+
+        # create jobs
+        for idx, chunk in enumerate(
+            get_chunks(md["inputfiles"][samp], args.nfiles_per_job)
+        ):
+            md["jobs"].append({"samp": samp, "idx": idx, "inputfiles": chunk})
+
+    return md
+
+
 def add_weight_branch(file, xsec, lumi=1000., treename='Events', wgtbranch='xsecWeight'):
     from array import array
     import ROOT
@@ -166,6 +265,8 @@ def load_dataset_file(dataset_file):
                 sample_list = [samp_or_list]
             outtree_to_samples[outtree_name].append(samp)
             samp_to_datasets[samp] = sample_list
+    logging.info(f"outtree_to_samples: {outtree_to_samples}")
+    logging.info(f"samp_to_datasets: {samp_to_datasets}")
     return outtree_to_samples, samp_to_datasets
 
 
@@ -254,6 +355,9 @@ def create_metadata(args):
         - 'jobs': (list of dict)
             - jobitem: (dict, keys: 'samp', 'idx', 'inputfiles')
     '''
+    if args.datasets.endswith('.json'):
+        logging.info('Loading metadata from JSON file %s' % args.datasets)
+        return create_metadata_from_json(args)
 
     arg_blacklist = ['metadata', 'select', 'ignore', 'site', 'datasets']
     md = {k: args.__dict__[k] for k in args.__dict__ if k not in arg_blacklist}
