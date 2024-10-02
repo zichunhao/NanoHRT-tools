@@ -62,6 +62,7 @@ export TMPDIR=`pwd`
 python3 processor.py $jobid $proxy
 status=$?
 
+touch done.cc
 ls -l
 
 exit $status

@@ -494,13 +494,13 @@ def submit(args, configs):
             shutil.copy2(f, args.jobdir)
     shutil.copy2(macrofile, args.jobdir)
     files_to_transfer = [os.path.abspath(f) for f in files_to_transfer]
-    
+
     try:
         proxy_path = os.environ['X509_USER_PROXY']
     except KeyError:
         raise RuntimeError('No grid proxy found. Create it and set X509_USER_PROXY.')
 
-    condordesc = '''\
+    condordesc = """\
 universe              = vanilla
 requirements          = (Arch == "X86_64") && (OpSys == "LINUX")
 request_memory        = {request_memory}
@@ -521,25 +521,29 @@ on_exit_remove        = (ExitBySignal == False) && (ExitCode == 0)
 on_exit_hold          = ( (ExitBySignal == True) || (ExitCode != 0) )
 on_exit_hold_reason   = strcat("Job held by ON_EXIT_HOLD due to ", ifThenElse((ExitBySignal == True), "exit by signal", strcat("exit code ",ExitCode)), ".")
 periodic_release      = (NumJobStarts < 3) && ((CurrentTime - EnteredCurrentStatus) > 10*60)
-{transfer_output}
+transfer_output_files = "done.cc
 {site}
 {maxruntime}
 {condor_extras}
 
 queue jobid from {jobids_file}
-'''.format(scriptfile=os.path.abspath(scriptfile),
-           proxy_path=proxy_path,
-           files_to_transfer=','.join(files_to_transfer),
-           jobdir=os.path.abspath(args.jobdir),
-           # when outputdir is on EOS, disable file transfer as file is manually copied to EOS in processor.py
-           initialdir=os.path.abspath(args.jobdir) if joboutputdir.startswith('/eos') else joboutputdir,
-           transfer_output='transfer_output_files = ""' if joboutputdir.startswith('/eos') else '',
-           jobids_file=os.path.abspath(jobids_file),
-           site='+DESIRED_Sites = "%s"' % args.site if args.site else '',
-           maxruntime='+MaxRuntime = %s' % args.max_runtime if args.max_runtime else '',
-           request_memory=args.request_memory,
-           condor_extras=args.condor_extras,
-           )
+""".format(
+        scriptfile=os.path.abspath(scriptfile),
+        proxy_path=proxy_path,
+        files_to_transfer=",".join(files_to_transfer),
+        jobdir=os.path.abspath(args.jobdir),
+        # when outputdir is on EOS, disable file transfer as file is manually copied to EOS in processor.py
+        initialdir=(
+            os.path.abspath(args.jobdir)
+            if joboutputdir.startswith("/eos")
+            else joboutputdir
+        ),
+        jobids_file=os.path.abspath(jobids_file),
+        site='+DESIRED_Sites = "%s"' % args.site if args.site else "",
+        maxruntime="+MaxRuntime = %s" % args.max_runtime if args.max_runtime else "",
+        request_memory=args.request_memory,
+        condor_extras=args.condor_extras,
+    )
     condorfile = os.path.join(args.jobdir, 'submit.cmd')
     with open(condorfile, 'w') as f:
         f.write(condordesc)
@@ -549,7 +553,7 @@ queue jobid from {jobids_file}
     print('Run the following command to submit the jobs:\n  %s' % cmd)
     print(cmd)
 
-    #if args.batch:
+    # if args.batch:
     #    import subprocess
     #    subprocess.Popen(cmd, shell=True).communicate()
 
