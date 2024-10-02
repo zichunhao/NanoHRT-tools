@@ -174,7 +174,10 @@ class HeavyFlavBaseProducer(Module, object):
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         self.isMC = bool(inputTree.GetBranch('genWeight'))
         self.hasParticleNetProb = bool(inputTree.GetBranch(self._fj_name + '_ParticleNetMD_probXbb'))
-        self.hasGloParTProb = bool(inputTree.GetBranch(score_label_H_bb))
+        self.hasParticleNetLegacyProb = bool(
+            inputTree.GetBranch(self._fj_name + "particleNetLegacy_QCD")
+        )
+        self.hasGloParTProb = bool(inputTree.GetBranch(self._fj_name + '_globalParT_QCD0HF'))
 
         # remove all possible h5 cache files
         for f in os.listdir('.'):
@@ -287,15 +290,19 @@ class HeavyFlavBaseProducer(Module, object):
 
             if self.hasGloParTProb:
                 # ParT scores
-                self.out.branch(prefix + "GloParTStage2_QCD", "F")
-                self.out.branch(prefix + "GloParTStage2_Xbb" , "F")
-                self.out.branch(prefix + "GloParTStage2_Xcc" , "F")
-                self.out.branch(prefix + "GloParTStage2_Xqq" , "F")
-                self.out.branch(prefix + "GloParTStage2_XbbVsQCD" , "F")
-                self.out.branch(prefix + "GloParTStage2_XccVsQCD" , "F")
-                self.out.branch(prefix + "GloParTStage2_XbbOrXqqVsQCD" , "F")
-                self.out.branch(prefix + "GloParTStage2_XccOrXqqVsQCD" , "F")
-                self.out.branch(prefix + "GloParTStage2_TVsQCD" , "F")
+                self.out.branch(prefix + "globalParT_QCD", "F")
+                self.out.branch(prefix + "globalParT_Xbb" , "F")
+                self.out.branch(prefix + "globalParT_Xcc" , "F")
+                self.out.branch(prefix + "globalParT_Xcs" , "F")
+                self.out.branch(prefix + "globalParT_Xgg" , "F")
+                self.out.branch(prefix + "globalParT_Xqq" , "F")
+                self.out.branch(prefix + "globalParT_XbbVsQCD" , "F")
+                self.out.branch(prefix + "globalParT_XccVsQCD" , "F")
+                self.out.branch(prefix + "globalParT_XbbOrXqqVsQCD" , "F")
+                self.out.branch(prefix + "globalParT_XccOrXqqVsQCD" , "F")
+                self.out.branch(prefix + "globalParT_TopVsQCD" , "F")
+                self.out.branch(prefix + "globalParT_massRes" , "F")
+                self.out.branch(prefix + "globalParT_massVis", "F")
 
             # Additional tagger scores from NanoAODv9
             self.out.branch(prefix + "DeepAK8MD_HbbvsQCD", "F")
@@ -766,40 +773,21 @@ class HeavyFlavBaseProducer(Module, object):
 
             # GloParT scores
             if self.hasGloParTProb:
-                j.glopart_Xbb = j.score_label_H_bb
-                j.glopart_Xcc = j.score_label_H_cc
-                j.glopart_Xqq = j.score_label_H_qq
-                j.glopart_QCD = j.score_label_QCD
-                j.glopart_Top = (
-                    j.score_label_Top_bWcs
-                    + j.score_label_Top_bWcs
-                    + j.score_label_Top_bWqq
-                    + j.score_label_Top_bWc
-                    + j.score_label_Top_bWs
-                    + j.score_label_Top_bWq
-                    + j.score_label_Top_bWev
-                    + j.score_label_Top_bWmv
-                    + j.score_label_Top_bWtauev
-                    + j.score_label_Top_bWtaumv
-                    + j.score_label_Top_bWtauhv
-                    + j.score_label_Top_Wcs
-                    + j.score_label_Top_Wqq
-                    + j.score_label_Top_Wev
-                    + j.score_label_Top_Wmv
-                    + j.score_label_Top_Wtauev
-                    + j.score_label_Top_Wtaumv
-                    + j.score_label_Top_Wtauhv
+                j.globalParT_QCD = j.globalParT_QCD0HF + j.globalParT_QCD1HF + j.globalParT_QCD2HF
+                j.globalParT_Top = (
+                    j.globalParT_TopW
+                    + j.globalParT_TopbW
+                    + j.globalParT_TopbWev
+                    + j.globalParT_TopbWmv
+                    + j.globalParT_TopbWq
+                    + j.globalParT_TopbWqq
+                    + j.globalParT_TopbWtauhv
                 )
-                j.glopart_XbbVsQCD = convert_prob(j, ['Xbb'], ['QCD'], prefix='glopart_')
-                j.glopart_XccVsQCD = convert_prob(j, ['Xcc'], ['QCD'], prefix='glopart_')
-                j.glopart.XqqVsQCD = convert_prob(j, ['Xqq'], ['QCD'], prefix='glopart_')
-                j.glopart_XbbOrXqqVsQCD = j.glopart_XbbVsQCD + j.glopart_XqqVsQCD
-                j.glopart_XccOrXqqVsQCD = j.glopart_XccVsQCD + j.glopart_XqqVsQCD
-                j.glopart_TVsQCD = convert_prob(j, ['Top'], ['QCD'], prefix='glopart_')
-                # masses
-                mass = j.fj_mass
-                j.glopart_parts_parts = j.target_parts_mass_factor * mass
-                j.glopart_res_mass = j.target_res_mass_factor * mass
+                j.globalParT_XccVsQCD = convert_prob(j, ['Xcc'], ['QCD'], prefix='globalParT_')
+                j.globalParT_XqqVsQCD = convert_prob(j, ['Xqq'], ['QCD'], prefix='globalParT_')
+                j.globalParT_XbbOrXqqVsQCD = j.globalParT_XbbVsQCD + j.globalParT_XqqVsQCD
+                j.globalParT_XccOrXqqVsQCD = j.globalParT_XccVsQCD + j.globalParT_XqqVsQCD
+                j.globalParT_TopVsQCD = convert_prob(j, ['Top'], ['QCD'], prefix='globalParT_')
 
     def evalMassRegression(self, event, jets):
         for j in jets:
@@ -994,17 +982,23 @@ class HeavyFlavBaseProducer(Module, object):
 
             if self.hasGloParTProb:
                 # GloParT
-                self.out.fillBranch(prefix + "GloParTStage2_QCD", fj.glopart_QCD)
-                self.out.fillBranch(prefix + "GloParTStage2_Xbb", fj.glopart_Xbb)
-                self.out.fillBranch(prefix + "GloParTStage2_Xcc", fj.glopart_Xcc)
-                self.out.fillBranch(prefix + "GloParTStage2_Xqq", fj.glopart_Xqq)
-                self.out.fillBranch(prefix + "GloParTStage2_XbbVsQCD", fj.glopart_XbbVsQCD)
-                self.out.fillBranch(prefix + "GloParTStage2_XccVsQCD", fj.glopart_XccVsQCD)
-                self.out.fillBranch(prefix + "GloParTStage2_XbbOrXqqVsQCD", fj.glopart_XbbOrXqqVsQCD)
-                self.out.fillBranch(prefix + "GloParTStage2_XccOrXqqVsQCD", fj.glopart_XccOrXqqVsQCD)
-                self.out.fillBranch(prefix + "GloParTStage2_TVsQCD", fj.glopart_TVsQCD)
-                self.out.fillBranch(prefix + "GloParTStage2_parts_mass", fj.glopart_parts_parts)
-                self.out.fillBranch(prefix + "GloParTStage2_res_mass", fj.glopart_res_mass)
+                self.out.fillBranch(prefix + "globalParT_QCD", fj.globalParT_QCD)
+                self.out.fillBranch(prefix + "globalParT_Xbb", fj.globalParT_Xbb)
+                self.out.fillBranch(prefix + "globalParT_Xcc", fj.globalParT_Xcc)
+                self.out.fillBranch(prefix + "globalParT_Xcs", fj.globalParT_Xcs)
+                self.out.fillBranch(prefix + "globalParT_Xgg", fj.globalParT_Xgg)
+                self.out.fillBranch(prefix + "globalParT_Xqq", fj.globalParT_Xqq)
+                self.out.fillBranch(prefix + "globalParT_Top", fj.globalParT_Top)
+                self.out.fillBranch(prefix + "globalParT_XbbVsQCD", fj.globalParT_XbbVsQCD)
+                self.out.fillBranch(prefix + "globalParT_XccVsQCD", fj.globalParT_XccVsQCD)
+                self.out.fillBranch(prefix + "globalParT_XqqVsQCD", fj.globalParT_XqqVsQCD)
+                self.out.fillBranch(prefix + "globalParT_XbbOrXqqVsQCD", fj.globalParT_XbbOrXqqVsQCD)
+                self.out.fillBranch(prefix + "globalParT_XccOrXqqVsQCD", fj.globalParT_XccOrXqqVsQCD)
+                self.out.fillBranch(prefix + "globalParT_TopVsQCD", fj.globalParT_TopVsQCD)
+                
+                self.out.fillBranch(prefix + "globalParT_massRes", fj.globalParT_massRes)
+                self.out.fillBranch(prefix + "globalParT_massVis", fj.globalParT_massVis)
+
 
             if self._opts['run_tagger']:
                 self.out.fillBranch(prefix + "origParticleNetMD_XccVsQCD",
