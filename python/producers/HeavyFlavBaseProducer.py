@@ -68,7 +68,7 @@ class HeavyFlavBaseProducer(Module, object):
         self._opts = {'sfbdt_threshold': -99,
                       'run_tagger': False, 'tagger_versions': ['V02b', 'V02c', 'V02d'],
                       'run_mass_regression': False, 'mass_regression_versions': ['V01a', 'V01b', 'V01c'],
-                      'WRITE_CACHE_FILE': False}
+                      'WRITE_CACHE_FILE': False, "ParT": True}
         for k in kwargs:
             if k in self._jmeSysts:
                 self._jmeSysts[k] = kwargs[k]
@@ -126,15 +126,35 @@ class HeavyFlavBaseProducer(Module, object):
                 fatjet_branch=self._fj_name, pfcand_branch='PFCands', sv_branch='SV', jetR=self._jetConeSize)
             prefix = os.path.expandvars('$CMSSW_BASE/src/PhysicsTools/NanoHRTTools/data')
             if self._opts['run_tagger']:
-                self.pnTaggers = [ParticleNetJetTagsProducer(
-                    '%s/ParticleNet-MD/%s/{version}/particle-net.onnx' % (prefix, self.jetType),
-                    '%s/ParticleNet-MD/%s/{version}/preprocess.json' % (prefix, self.jetType),
-                    version=ver, cache_suffix='tagger') for ver in self._opts['tagger_versions']]
+                model_path = '%s/ParticleNet-MD/%s/{version}/particle-net.onnx' % (prefix, self.jetType)
+                preprocess_path = '%s/ParticleNet-MD/%s/{version}/preprocess.json' % (prefix, self.jetType)
+                logger.info(f'ParticleNet producer: model_path={model_path}, preprocess_path={preprocess_path}')
+                self.pnTaggers = [
+                    ParticleNetJetTagsProducer(
+                        model_path=model_path,
+                        preprocess_path=preprocess_path,
+                        version=ver,
+                        cache_suffix="tagger",
+                    )
+                    for ver in self._opts["tagger_versions"]
+                ]
             if self._opts['run_mass_regression']:
-                self.pnMassRegressions = [ParticleNetJetTagsProducer(
-                    '%s/MassRegression/%s/{version}/particle_net_regression.onnx' % (prefix, self.jetType),
-                    '%s/MassRegression/%s/{version}/preprocess.json' % (prefix, self.jetType),
-                    version=ver, cache_suffix='mass') for ver in self._opts['mass_regression_versions']]
+                model_path = '%s/MassRegression/%s/{version}/particle_net_regression.onnx' % (prefix, self.jetType)
+                preprocess_path = "%s/MassRegression/%s/{version}/preprocess.json" % (
+                    prefix,
+                    self.jetType,
+                )
+                self.pnMassRegressions = [
+                    ParticleNetJetTagsProducer(
+                        model_path=model_path,
+                        preprocess_path=preprocess_path,
+                        version=ver, 
+                        cache_suffix='mass'
+                    ) 
+                    for ver in self._opts['mass_regression_versions']
+                ]
+        else:
+            logging.info(f"{self._opts['run_tagger']=} and {self._opts['run_mass_regression']=}")
 
         # https://twiki.cern.ch/twiki/bin/viewauth/CMS/BtagRecommendation
         # dummy values for 2022 and future (not important)
@@ -154,6 +174,7 @@ class HeavyFlavBaseProducer(Module, object):
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         self.isMC = bool(inputTree.GetBranch('genWeight'))
         self.hasParticleNetProb = bool(inputTree.GetBranch(self._fj_name + '_ParticleNetMD_probXbb'))
+        self.hasGloParTProb = bool(inputTree.GetBranch(score_label_H_bb))
 
         # remove all possible h5 cache files
         for f in os.listdir('.'):
@@ -240,7 +261,9 @@ class HeavyFlavBaseProducer(Module, object):
             self.out.branch(prefix + "ParticleNet_TvsQCD", "F")
             self.out.branch(prefix + "ParticleNet_WvsQCD", "F")
             self.out.branch(prefix + "ParticleNet_ZvsQCD", "F")
+            # PartcleNet
             if not self.is_run3:
+                # ParticleNet v12
                 self.out.branch(prefix + "ParticleNetMD_Xbb", "F")
                 self.out.branch(prefix + "ParticleNetMD_Xcc", "F")
                 self.out.branch(prefix + "ParticleNetMD_Xqq", "F")
@@ -249,6 +272,7 @@ class HeavyFlavBaseProducer(Module, object):
                 self.out.branch(prefix + "ParticleNetMD_XccVsQCD", "F")
                 self.out.branch(prefix + "ParticleNetMD_XccOrXqqVsQCD", "F")
             else:
+                # ParticleNet Legacy for our case
                 self.out.branch(prefix + "ParticleNetLegacy_Xbb", "F")
                 self.out.branch(prefix + "ParticleNetLegacy_Xcc", "F")
                 self.out.branch(prefix + "ParticleNetLegacy_Xqq", "F")
@@ -260,6 +284,18 @@ class HeavyFlavBaseProducer(Module, object):
                 self.out.branch(prefix + "ParticleNetLegacy_XccVsQCD", "F")
                 self.out.branch(prefix + "ParticleNetLegacy_XccOrXqqVsQCD", "F")
                 self.out.branch(prefix + "ParticleNetLegacy_mass", "F")
+
+            if self.hasGloParTProb:
+                # ParT scores
+                self.out.branch(prefix + "GloParTStage2_QCD", "F")
+                self.out.branch(prefix + "GloParTStage2_Xbb" , "F")
+                self.out.branch(prefix + "GloParTStage2_Xcc" , "F")
+                self.out.branch(prefix + "GloParTStage2_Xqq" , "F")
+                self.out.branch(prefix + "GloParTStage2_XbbVsQCD" , "F")
+                self.out.branch(prefix + "GloParTStage2_XccVsQCD" , "F")
+                self.out.branch(prefix + "GloParTStage2_XbbOrXqqVsQCD" , "F")
+                self.out.branch(prefix + "GloParTStage2_XccOrXqqVsQCD" , "F")
+                self.out.branch(prefix + "GloParTStage2_TVsQCD" , "F")
 
             # Additional tagger scores from NanoAODv9
             self.out.branch(prefix + "DeepAK8MD_HbbvsQCD", "F")
@@ -385,7 +421,6 @@ class HeavyFlavBaseProducer(Module, object):
                         self.out.branch(prefix + "bpart{}_sumpt".format(ptsuf), "F")
                         self.out.branch(prefix + "cpart{}_sumpt".format(ptsuf), "F")
                         self.out.branch(prefix + "gpart{}_sumpt".format(ptsuf), "F")
-         
 
     def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         if self._opts['run_tagger'] and self._opts['WRITE_CACHE_FILE']:
@@ -417,7 +452,7 @@ class HeavyFlavBaseProducer(Module, object):
 
             if el.pt > 10 and abs(el.eta) < 2.5 and abs(el.dxy) < 0.05 and abs(el.dz) < 0.2 \
                 and electron_mvaIso_WP90 and el.miniPFRelIso_all < 0.4:
-                    event.looseLeptons.append(el)
+                event.looseLeptons.append(el)
 
         muons = Collection(event, "Muon")
         for mu in muons:
@@ -678,7 +713,6 @@ class HeavyFlavBaseProducer(Module, object):
                             elif gp.pdgId == 21:
                                 fj.ngpart50 += 1; fj.gpart50_sumpt += gp.pt
 
-
     def evalTagger(self, event, jets):
         for j in jets:
             if self._opts['run_tagger']:
@@ -714,7 +748,7 @@ class HeavyFlavBaseProducer(Module, object):
                         j.pn_legacy_Xcc = j.particleNetLegacy_Xcc
                         j.pn_legacy_Xqq = j.particleNetLegacy_Xqq
                         j.pn_legacy_QCD = j.particleNetLegacy_QCD
-                        
+
             if not self.is_run3:            
                 j.pn_XbbVsQCD = convert_prob(j, ['Xbb'], ['QCD'], prefix='pn_')
                 j.pn_XccVsQCD = convert_prob(j, ['Xcc'], ['QCD'], prefix='pn_')
@@ -729,6 +763,43 @@ class HeavyFlavBaseProducer(Module, object):
                 j.pn_legacy_XbbVsQCD = convert_prob(j, ['legacy_Xbb'], ['legacy_QCD'], prefix='pn_')
                 j.pn_legacy_XccVsQCD = convert_prob(j, ['legacy_Xcc'], ['legacy_QCD'], prefix='pn_')
                 j.pn_legacy_XccOrXqqVsQCD = convert_prob(j, ['legacy_Xcc', 'legacy_Xqq'], ['legacy_QCD'], prefix='pn_')
+
+            # GloParT scores
+            if self.hasGloParTProb:
+                j.glopart_Xbb = j.score_label_H_bb
+                j.glopart_Xcc = j.score_label_H_cc
+                j.glopart_Xqq = j.score_label_H_qq
+                j.glopart_QCD = j.score_label_QCD
+                j.glopart_Top = (
+                    j.score_label_Top_bWcs
+                    + j.score_label_Top_bWcs
+                    + j.score_label_Top_bWqq
+                    + j.score_label_Top_bWc
+                    + j.score_label_Top_bWs
+                    + j.score_label_Top_bWq
+                    + j.score_label_Top_bWev
+                    + j.score_label_Top_bWmv
+                    + j.score_label_Top_bWtauev
+                    + j.score_label_Top_bWtaumv
+                    + j.score_label_Top_bWtauhv
+                    + j.score_label_Top_Wcs
+                    + j.score_label_Top_Wqq
+                    + j.score_label_Top_Wev
+                    + j.score_label_Top_Wmv
+                    + j.score_label_Top_Wtauev
+                    + j.score_label_Top_Wtaumv
+                    + j.score_label_Top_Wtauhv
+                )
+                j.glopart_XbbVsQCD = convert_prob(j, ['Xbb'], ['QCD'], prefix='glopart_')
+                j.glopart_XccVsQCD = convert_prob(j, ['Xcc'], ['QCD'], prefix='glopart_')
+                j.glopart.XqqVsQCD = convert_prob(j, ['Xqq'], ['QCD'], prefix='glopart_')
+                j.glopart_XbbOrXqqVsQCD = j.glopart_XbbVsQCD + j.glopart_XqqVsQCD
+                j.glopart_XccOrXqqVsQCD = j.glopart_XccVsQCD + j.glopart_XqqVsQCD
+                j.glopart_TVsQCD = convert_prob(j, ['Top'], ['QCD'], prefix='glopart_')
+                # masses
+                mass = j.fj_mass
+                j.glopart_parts_parts = j.target_parts_mass_factor * mass
+                j.glopart_res_mass = j.target_res_mass_factor * mass
 
     def evalMassRegression(self, event, jets):
         for j in jets:
@@ -896,8 +967,8 @@ class HeavyFlavBaseProducer(Module, object):
                     self.out.fillBranch(prefix + "ParticleNet_WvsQCD", -1)
                     self.out.fillBranch(prefix + "ParticleNet_ZvsQCD", -1)
 
-            # ParticleNet-MD
             if not self.is_run3:
+                # ParticleNet-MD
                 self.out.fillBranch(prefix + "ParticleNetMD_Xbb", fj.pn_Xbb)
                 self.out.fillBranch(prefix + "ParticleNetMD_Xcc", fj.pn_Xcc)
                 self.out.fillBranch(prefix + "ParticleNetMD_Xqq", fj.pn_Xqq)
@@ -906,6 +977,7 @@ class HeavyFlavBaseProducer(Module, object):
                 self.out.fillBranch(prefix + "ParticleNetMD_XccVsQCD", fj.pn_XccVsQCD)
                 self.out.fillBranch(prefix + "ParticleNetMD_XccOrXqqVsQCD", fj.pn_XccOrXqqVsQCD)
             else:
+                # ParticleNet Legacy
                 self.out.fillBranch(prefix + "ParticleNetLegacy_Xbb", fj.pn_legacy_Xbb)
                 self.out.fillBranch(prefix + "ParticleNetLegacy_Xcc", fj.pn_legacy_Xcc)
                 self.out.fillBranch(prefix + "ParticleNetLegacy_Xqq", fj.pn_legacy_Xqq)
@@ -918,9 +990,21 @@ class HeavyFlavBaseProducer(Module, object):
                 self.out.fillBranch(prefix + "ParticleNetLegacy_XbbVsQCD", fj.pn_legacy_XbbVsQCD)
                 self.out.fillBranch(prefix + "ParticleNetLegacy_XccVsQCD", fj.pn_legacy_XccVsQCD)
                 self.out.fillBranch(prefix + "ParticleNetLegacy_XccOrXqqVsQCD", fj.pn_legacy_XccOrXqqVsQCD)
-                
                 self.out.fillBranch(prefix + "ParticleNetLegacy_mass", fj.particleNetLegacy_mass)
-                
+
+            if self.hasGloParTProb:
+                # GloParT
+                self.out.fillBranch(prefix + "GloParTStage2_QCD", fj.glopart_QCD)
+                self.out.fillBranch(prefix + "GloParTStage2_Xbb", fj.glopart_Xbb)
+                self.out.fillBranch(prefix + "GloParTStage2_Xcc", fj.glopart_Xcc)
+                self.out.fillBranch(prefix + "GloParTStage2_Xqq", fj.glopart_Xqq)
+                self.out.fillBranch(prefix + "GloParTStage2_XbbVsQCD", fj.glopart_XbbVsQCD)
+                self.out.fillBranch(prefix + "GloParTStage2_XccVsQCD", fj.glopart_XccVsQCD)
+                self.out.fillBranch(prefix + "GloParTStage2_XbbOrXqqVsQCD", fj.glopart_XbbOrXqqVsQCD)
+                self.out.fillBranch(prefix + "GloParTStage2_XccOrXqqVsQCD", fj.glopart_XccOrXqqVsQCD)
+                self.out.fillBranch(prefix + "GloParTStage2_TVsQCD", fj.glopart_TVsQCD)
+                self.out.fillBranch(prefix + "GloParTStage2_parts_mass", fj.glopart_parts_parts)
+                self.out.fillBranch(prefix + "GloParTStage2_res_mass", fj.glopart_res_mass)
 
             if self._opts['run_tagger']:
                 self.out.fillBranch(prefix + "origParticleNetMD_XccVsQCD",
