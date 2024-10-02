@@ -86,105 +86,6 @@ def get_filenames(dataset, retry=3):
             return files
 
 
-def create_metadata_from_json(args):
-    """
-    Create metadata from JSON input: {year: {category: {tag: {dataset: [files]}}}}
-
-    Metadata is a dict including:
-        - options
-        - 'samples': (list)
-        - 'inputfiles': (dict, sample -> files)
-        - 'jobs': (list of dict)
-            - jobitem: (dict, keys: 'samp', 'idx', 'inputfiles')
-    """
-    import subprocess
-
-    def select_sample(dataset):
-        keep = True
-        if args.select:
-            sels = args.select.split(",")
-            match = False
-            for s in sels:
-                if re.search(s, dataset):
-                    logging.debug("Selecting dataset %s", dataset)
-                    match = True
-                    break
-            if not match:
-                keep = False
-        elif args.ignore:
-            vetoes = args.ignore.split(",")
-            match = False
-            for v in vetoes:
-                if re.search(v, dataset):
-                    logging.debug("Ignoring dataset %s", dataset)
-                    match = True
-                    break
-            if match:
-                keep = False
-        return keep
-
-    def get_chunks(lst, n):
-        """Yield successive n-sized chunks from lst."""
-        for i in range(0, len(lst), n):
-            yield lst[i : i + n]
-
-    # Initialize metadata
-    arg_blacklist = ["metadata", "select", "ignore", "site", "datasets"]
-    md = {k: args.__dict__[k] for k in args.__dict__ if k not in arg_blacklist}
-
-    # git info
-    cmd = "git rev-parse HEAD && git status"
-    p = subprocess.Popen(
-        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-    )
-    md["git_info"] = p.communicate()[0].decode("utf-8")
-
-    md["samples"] = []
-    md["inputfiles"] = {}
-    md["jobs"] = []
-
-    # Load JSON file
-    with open(args.datasets, "r") as f:
-        data = json.load(f)
-
-    # Check if the specified year exists in the data
-    if args.year not in data:
-        raise ValueError(f"Specified year {args.year} not found in the dataset")
-
-    year_data = data[args.year]
-    for category in year_data:
-        if args.run_data:
-            # Data: only need JetMet
-            if not "JetMet" in category:
-                continue
-        else:
-            # MC: don't need JetMet
-            if "JetMet" in category:
-                continue
-
-        for dataset in year_data[category]:
-            if select_sample(dataset):
-                samp = f"{category}_{dataset}"
-                md["samples"].append(samp)
-                md["inputfiles"][samp] = year_data[category][dataset]
-
-    # sort the samples
-    md["samples"] = sorted(md["samples"])
-
-    # create jobs
-    for samp in md["samples"]:
-        # sort the input list
-        md["inputfiles"][samp] = sorted(md["inputfiles"][samp])
-
-        # create jobs
-        for idx, chunk in enumerate(
-            get_chunks(md["inputfiles"][samp], args.nfiles_per_job)
-        ):
-            md["jobs"].append({"samp": samp, "idx": idx, "inputfiles": chunk})
-
-    return md
-
-
 def add_weight_branch(file, xsec, lumi=1000., treename='Events', wgtbranch='xsecWeight'):
     from array import array
     import ROOT
@@ -342,6 +243,116 @@ def tar_cmssw(tarball_suffix, batchMode=False):
     import tarfile
     with tarfile.open(cmsswtar, "w:gz") as tar:
         tar.add(cmsswdir, arcname=os.path.basename(cmsswdir), filter=exclude)
+
+
+def create_metadata_from_json(args):
+    """
+    Create metadata from JSON input
+
+    Metadata is a dict including:
+        - options
+        - 'samples': (list)
+        - 'inputfiles': (dict, sample -> files)
+        - 'jobs': (list of dict)
+            - jobitem: (dict, keys: 'samp', 'idx', 'inputfiles')
+    """
+    import subprocess
+
+    arg_blacklist = ["metadata", "select", "ignore", "site", "datasets"]
+    md = {k: args.__dict__[k] for k in args.__dict__ if k not in arg_blacklist}
+
+    # git info
+    cmd = "git rev-parse HEAD && git status"
+    p = subprocess.Popen(
+        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+    )
+    md["git_info"] = p.communicate()[0].decode("utf-8")
+
+    md["samples"] = []
+    md["inputfiles"] = {}
+    md["jobs"] = []
+
+    def select_sample(dataset):
+        keep = True
+        if args.select:
+            sels = args.select.split(",")
+            match = False
+            for s in sels:
+                if re.search(s, dataset):
+                    logging.debug("Selecting dataset %s", dataset)
+                    match = True
+                    break
+            if not match:
+                keep = False
+        elif args.ignore:
+            vetoes = args.ignore.split(",")
+            match = False
+            for v in vetoes:
+                if re.search(v, dataset):
+                    logging.debug("Ignoring dataset %s", dataset)
+                    match = True
+                    break
+            if match:
+                keep = False
+        return keep
+
+    def get_chunks(lst, n):
+        """Yield successive n-sized chunks from lst."""
+        for i in range(0, len(lst), n):
+            yield lst[i : i + n]
+
+    def strip_remote_prefix(filepath):
+        """Strip the remote prefix from the filepath and ensure single leading slash."""
+        stripped = re.sub(r"^root://[^/]+/?", "/", filepath)
+        return "/" + stripped.lstrip("/")
+
+    # Load JSON file
+    with open(args.datasets, "r") as f:
+        data = json.load(f)
+
+    # Check if the specified year exists in the data
+    if args.year not in data:
+        raise ValueError(f"Specified year {args.year} not found in the dataset")
+
+    year_data = data[args.year]
+    for category in year_data:
+        for dataset in year_data[category]:
+            if select_sample(dataset):
+                samp = f"{category}_{dataset}"
+                md["samples"].append(samp)
+
+                # Strip remote prefix and handle files
+                filelist = [
+                    strip_remote_prefix(f) for f in year_data[category][dataset]
+                ]
+                if args.inputdir:
+                    # If inputdir is specified, assume local files
+                    local_filelist = []
+                    for file_path in filelist:
+                        local_path = os.path.join(args.inputdir, file_path.lstrip("/").lstrip(args.inputdir))
+                        if os.path.exists(local_path):
+                            if os.path.getsize(local_path) < 1000:
+                                logging.warning(f"Ignoring small file: {local_path}")
+                                continue
+                            local_filelist.append(local_path)
+                        else:
+                            logging.warning(f"Local file not found: {local_path}")
+                    md["inputfiles"][samp] = sorted(local_filelist)
+                else:
+                    # Use stripped remote files
+                    md["inputfiles"][samp] = sorted(filelist)
+
+    # sort the samples
+    md["samples"] = sorted(md["samples"])
+
+    # create jobs
+    for samp in md["samples"]:
+        for idx, chunk in enumerate(
+            get_chunks(md["inputfiles"][samp], args.nfiles_per_job)
+        ):
+            md["jobs"].append({"samp": samp, "idx": idx, "inputfiles": chunk})
+
+    return md
 
 
 def create_metadata(args):
