@@ -299,10 +299,27 @@ def create_metadata_from_json(args):
         for i in range(0, len(lst), n):
             yield lst[i:i + n]
 
-    def strip_remote_prefix(filepath):
+    def process_remote_prefix(filepath):
         """Strip the remote prefix from the filepath and ensure single leading slash."""
-        stripped = re.sub(r"^root://[^/]+/?", "/", filepath)
-        return "/" + stripped.lstrip("/")
+        if not args.prefetch:
+            stripped = re.sub(r"^root://[^/]+/?", "/", filepath)
+            return "/" + stripped.lstrip("/")
+        else:
+            # if "root://" in filepath:
+            #     return filepath
+            # else:
+            #     if filepath.startswith("/eos/uscms"):
+            #         root_prefix = "root://cmsxrootd.fnal.gov/"
+            #         stripped_filepath = filepath.replace("/eos/uscms", "")
+            #     else:
+            #         root_prefix = "root://xrootd-cms.infn.it/"
+            #         stripped_filepath = filepath
+                    
+            #     if not _xrdcp_error_logged:
+            #         logging.error(f"--xrdcp is set but the file {filepath}) appears to be local. Prepending {root_prefix}.")
+            #         _xrdcp_error_logged = True  # log only once
+            #     return root_prefix + stripped_filepath.lstrip("/")
+            return filepath  # will be processed in processor.py
 
     def merge_paths(inputdir, filepath):
         inputdir = inputdir.rstrip('/')
@@ -334,7 +351,7 @@ def create_metadata_from_json(args):
                 md['samples'].append(samp)
                 
                 # Strip remote prefix and handle files
-                filelist = [strip_remote_prefix(f) for f in year_data[category][dataset]]
+                filelist = [process_remote_prefix(f) for f in year_data[category][dataset]]
                 if args.inputdir:
                     # If inputdir is specified, merge paths
                     merged_filelist = []
@@ -644,7 +661,7 @@ on_exit_remove        = (ExitBySignal == False) && (ExitCode == 0)
 on_exit_hold          = ( (ExitBySignal == True) || (ExitCode != 0) )
 on_exit_hold_reason   = strcat("Job held by ON_EXIT_HOLD due to ", ifThenElse((ExitBySignal == True), "exit by signal", strcat("exit code ",ExitCode)), ".")
 periodic_release      = (NumJobStarts < 3) && ((CurrentTime - EnteredCurrentStatus) > 10*60)
-transfer_output_files = "done.cc"
+transfer_output_files = done.cc
 {site}
 {maxruntime}
 {condor_extras}
@@ -653,7 +670,7 @@ queue jobid from {jobids_file}
 """.format(
         scriptfile=os.path.abspath(scriptfile),
         proxy_path=proxy_path,
-        files_to_transfer=",".join(files_to_transfer),
+        files_to_transfer=",".join(files_to_transfer + [proxy_path]),
         jobdir=os.path.abspath(args.jobdir),
         # when outputdir is on EOS, disable file transfer as file is manually copied to EOS in processor.py
         initialdir=(
@@ -831,9 +848,9 @@ def run_all(args):
 def get_arg_parser():
     import argparse
     parser = argparse.ArgumentParser('Preprocess ntuples')
+
     parser.add_argument('-i', '--inputdir', default=None,
-                        help='Input diretory.'
-                        )
+                       help='Input directory.')
     parser.add_argument('-o', '--outputdir', required=True,
                         help='Output directory'
                         )

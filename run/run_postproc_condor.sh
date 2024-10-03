@@ -15,8 +15,9 @@ echo "jobid: $jobid"
 proxy_path=$2
 echo "proxy_path: $proxy_path"
 
-export X509_USER_PROXY=$proxy
-voms-proxy-info -all -file $2
+proxy_file=$(basename $proxy_path)
+export X509_USER_PROXY=$workdir/$proxy_file
+voms-proxy-info --all
 
 source /cvmfs/cms.cern.ch/cmsset_default.sh
 tar -xf CMSSW*.tar.gz --warning=no-timestamp
@@ -64,7 +65,7 @@ export TMPDIR=`pwd`
 python3 processor.py $jobid
 status=$?
 
-touch "done.cc"
-ls -l
+touch ${workdir}/done.cc
+ls -l ${workdir}
 
 exit $status
