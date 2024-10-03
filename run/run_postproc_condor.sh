@@ -33,7 +33,7 @@ old_release_top=$(awk -F= '/RELEASETOP/ {print $2}' $rel/.SCRAM/el*/Environment)
 # which will not exist here
  
 echo ">>> creating new release $rel"
-mkdir tmp
+mkdir -p tmp
 cd tmp
 export SCRAM_ARCH="$arch"
 scramv1 project -f CMSSW $rel
@@ -64,7 +64,7 @@ export TMPDIR=`pwd`
 python3 processor.py $jobid
 status=$?
 
-touch done.cc
+touch "done.cc"
 ls -l
 
 exit $status
