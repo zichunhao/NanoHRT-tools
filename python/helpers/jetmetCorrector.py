@@ -52,7 +52,8 @@ class JetCorrector(object):
     def getCorrection(self, jet, rho, level=None):
         try:
             raw_pt = jet.rawP4.pt()
-        except RuntimeError:
+        except RuntimeError as e:
+            logger.error(f"Error: {e}")
             raw_pt = jet.pt * (1. - jet.rawFactor)
         self.corrector.setJetPt(raw_pt)
         self.corrector.setJetPhi(jet.phi)
@@ -60,7 +61,8 @@ class JetCorrector(object):
         self.corrector.setRho(rho)
         try:
             self.corrector.setJetA(jet.area)
-        except RuntimeError:
+        except RuntimeError as e:
+            logger.error(f"Error: {e}; returning None")
             pass
         if level is None:
             return self.corrector.getCorrection()
@@ -303,7 +305,12 @@ class JetMETCorrector(object):
         if jet.neEmEF + jet.chEmEF > 0.9:
             return zero
         rawP4 = jet.rawP4 * (jet._smearFactorNominal if self.jer and self.smearMET else 1 - jet.muonSubtrFactor)
-        corrP4 = rawP4 * jet._jecFactor
+        try:
+            corrP4 = rawP4 * jet._jecFactor
+        except TypeError as e:
+            logger.error(f"{rawP4=}")
+            logger.error(f"{jet._jecFactor=}")
+            raise e
         if corrP4.pt() < 15:
             return zero
         delta = rawP4 * jet._jecFactorL1 - corrP4

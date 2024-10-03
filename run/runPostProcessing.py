@@ -256,8 +256,8 @@ def create_metadata_from_json(args):
         - 'jobs': (list of dict)
             - jobitem: (dict, keys: 'samp', 'idx', 'inputfiles')
     '''
-
     import subprocess
+
     arg_blacklist = ['metadata', 'select', 'ignore', 'site', 'datasets']
     md = {k: args.__dict__[k] for k in args.__dict__ if k not in arg_blacklist}
 
@@ -305,23 +305,10 @@ def create_metadata_from_json(args):
         return "/" + stripped.lstrip("/")
 
     def merge_paths(inputdir, filepath):
-        """Merge inputdir and filepath when there's an overlap."""
         inputdir = inputdir.rstrip('/')
         filepath = filepath.lstrip('/')
+        return os.path.join(inputdir, filepath)
         
-        # Find the longest common suffix between inputdir and the beginning of filepath
-        common_suffix = ''
-        for i in range(1, min(len(inputdir), len(filepath)) + 1):
-            if inputdir[-i:] == filepath[:i]:
-                common_suffix = filepath[:i]
-            else:
-                break
-        
-        if common_suffix:
-            return inputdir + filepath[len(common_suffix):]
-        else:
-            return os.path.join(inputdir, filepath)
-
     # Load JSON file
     with open(args.datasets, 'r') as f:
         data = json.load(f)
@@ -332,6 +319,15 @@ def create_metadata_from_json(args):
 
     year_data = data[args.year]
     for category in year_data:
+        category_is_data = ("JetMET" in category or "JetHT" in category)
+        if args.run_data:
+            if not category_is_data:
+                continue
+        else:
+            # mc
+            if category_is_data:
+                continue
+        
         for dataset in year_data[category]:
             if select_sample(dataset):
                 samp = f"{category}_{dataset}"
