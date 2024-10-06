@@ -347,8 +347,7 @@ def create_metadata_from_json(args):
         
         for dataset in year_data[category]:
             if select_sample(dataset):
-                samp = f"{category}_{dataset}"
-                md['samples'].append(samp)
+                md['samples'].append(category)
                 
                 # Strip remote prefix and handle files
                 filelist = [process_remote_prefix(f) for f in year_data[category][dataset]]
@@ -364,10 +363,10 @@ def create_metadata_from_json(args):
                             merged_filelist.append(merged_path)
                         else:
                             logging.warning(f'File not found: {merged_path}')
-                    md['inputfiles'][samp] = sorted(merged_filelist)
+                    md['inputfiles'][category] = sorted(merged_filelist)
                 else:
                     # Use stripped remote files
-                    md['inputfiles'][samp] = sorted(filelist)
+                    md['inputfiles'][category] = sorted(filelist)
 
     # sort the samples
     md['samples'] = sorted(md['samples'])
