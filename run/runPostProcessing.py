@@ -314,7 +314,7 @@ def create_metadata_from_json(args):
             #     else:
             #         root_prefix = "root://xrootd-cms.infn.it/"
             #         stripped_filepath = filepath
-                    
+
             #     if not _xrdcp_error_logged:
             #         logging.error(f"--xrdcp is set but the file {filepath}) appears to be local. Prepending {root_prefix}.")
             #         _xrdcp_error_logged = True  # log only once
@@ -325,7 +325,7 @@ def create_metadata_from_json(args):
         inputdir = inputdir.rstrip('/')
         filepath = filepath.lstrip('/')
         return os.path.join(inputdir, filepath)
-        
+
     # Load JSON file
     with open(args.datasets, 'r') as f:
         data = json.load(f)
@@ -336,7 +336,7 @@ def create_metadata_from_json(args):
 
     year_data = data[args.year]
     for category in year_data:
-        category_is_data = ("JetMET" in category or "JetHT" in category)
+        category_is_data = ("jetmet" in category.lower() or "jetht" in category.lower())
         if args.run_data:
             if not category_is_data:
                 continue
@@ -344,11 +344,12 @@ def create_metadata_from_json(args):
             # mc
             if category_is_data:
                 continue
-        
+
         for dataset in year_data[category]:
             if select_sample(dataset):
-                md['samples'].append(category)
-                
+                samp_tag = dataset
+                md["samples"].append(samp_tag)
+
                 # Strip remote prefix and handle files
                 filelist = [process_remote_prefix(f) for f in year_data[category][dataset]]
                 if args.inputdir:
@@ -363,10 +364,10 @@ def create_metadata_from_json(args):
                             merged_filelist.append(merged_path)
                         else:
                             logging.warning(f'File not found: {merged_path}')
-                    md['inputfiles'][category] = sorted(merged_filelist)
+                    md['inputfiles'][samp_tag] = sorted(merged_filelist)
                 else:
                     # Use stripped remote files
-                    md['inputfiles'][category] = sorted(filelist)
+                    md["inputfiles"][samp_tag] = sorted(filelist)
 
     # sort the samples
     md['samples'] = sorted(md['samples'])
