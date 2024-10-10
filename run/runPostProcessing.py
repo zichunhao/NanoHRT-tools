@@ -367,10 +367,16 @@ def create_metadata_from_json(args):
                             merged_filelist.append(merged_path)
                         else:
                             logging.warning(f'File not found: {merged_path}')
-                    md['inputfiles'][samp_tag] = sorted(merged_filelist)
+                    if len(merged_filelist) > 0:
+                        md['inputfiles'][samp_tag] = sorted(merged_filelist)
+                    else:
+                        pass
                 else:
                     # Use stripped remote files
-                    md["inputfiles"][samp_tag] = sorted(filelist)
+                    if len(filelist) > 0:
+                        md["inputfiles"][samp_tag] = sorted(filelist)
+                    else:
+                        pass
 
     # sort the samples
     md['samples'] = sorted(md['samples'])
