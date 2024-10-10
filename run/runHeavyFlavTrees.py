@@ -71,7 +71,9 @@ def _process(args):
     if year_int in (2017, 2018):
         args.weight_file = 'samples/xsec_2017.conf'
     elif year_int >= 2022:
-        args.weight_file = 'samples/xsecs_run3.py'
+        # args.weight_file = 'samples/xsec_run3.py'
+        # args.weight_file = 'samples/xsec_run3_ParT.json'
+        pass
     else:
         raise RuntimeError('Year not supported: %s' % year)
     logging.info(f"year={year}, weight_file={args.weight_file}")

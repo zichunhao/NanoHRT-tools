@@ -1,4 +1,4 @@
-#!/bin/env python
+#!/bin/env python3
 import ROOT
 import numpy
 import sys
@@ -11,17 +11,28 @@ files = sys.argv[2:]
 
 def zeroFill(tree, brName, brObj, allowNonBool=False):
     # typename: (numpy type code, root type code)
-    branch_type_dict = {'Bool_t': ('?', 'O'), 'Float_t': ('f4', 'F'), 'UInt_t': (
-        'u4', 'i'), 'Long64_t': ('i8', 'L'), 'Double_t': ('f8', 'D')}
+    branch_type_dict = {
+        "Bool_t": ("?", "O"),
+        "Float_t": ("f4", "F"),
+        "UInt_t": ("u4", "i"),
+        "Long64_t": ("i8", "L"),
+        "Double_t": ("f8", "D"),
+    }
     brType = brObj.GetLeaf(brName).GetTypeName()
     if (not allowNonBool) and (brType != "Bool_t"):
-        print(("Did not expect to back fill non-boolean branches ", tree, brName, brObj.GetLeaf(br).GetTypeName()))
+        print(
+            (
+                "Did not expect to back fill non-boolean branches ",
+                tree,
+                brName,
+                brObj.GetLeaf(br).GetTypeName(),
+            )
+        )
     else:
         if brType not in branch_type_dict:
-            raise RuntimeError('Impossible to backfill branch of type %s' % brType)
+            raise RuntimeError("Impossible to backfill branch of type %s" % brType)
         buff = numpy.zeros(1, dtype=numpy.dtype(branch_type_dict[brType][0]))
-        b = tree.Branch(brName, buff, brName + "/" +
-                        branch_type_dict[brType][1])
+        b = tree.Branch(brName, buff, brName + "/" + branch_type_dict[brType][1])
         # be sure we do not trigger flushing
         b.SetBasketSize(tree.GetEntries() * 2)
         for x in range(0, tree.GetEntries()):
@@ -34,7 +45,10 @@ goFast = True
 for fn in files:
     print("Adding file " + str(fn))
     fileHandles.append(ROOT.TFile.Open(fn))
-    if fileHandles[-1].GetCompressionSettings() != fileHandles[0].GetCompressionSettings():
+    if (
+        fileHandles[-1].GetCompressionSettings()
+        != fileHandles[0].GetCompressionSettings()
+    ):
         goFast = False
         print("Disabling fast merging as inputs have different compressions")
 of = ROOT.TFile(ofname, "recreate")
@@ -53,51 +67,59 @@ for e in fileHandles[0].GetListOfKeys():
         obj = obj.CloneTree(-1, "fast" if goFast else "")
         branchNames = set([x.GetName() for x in obj.GetListOfBranches()])
     for fh in fileHandles[1:]:
-        print(f"file handle: {fh}")
-        otherObj = fh.GetListOfKeys().FindObject(name).ReadObj()
+        try:
+            otherObj = fh.GetListOfKeys().FindObject(name).ReadObj()
+        except AttributeError as e:
+            filename = fh.GetName()
+            raise AttributeError(f"Error reading {name} from {filename}: {e}")
         inputs.Add(otherObj)
-        if isTree and obj.GetName() == 'Events':
+        if isTree and obj.GetName() == "Events":
             otherObj.SetAutoFlush(0)
-            otherBranches = set([x.GetName()
-                                 for x in otherObj.GetListOfBranches()])
+            otherBranches = set([x.GetName() for x in otherObj.GetListOfBranches()])
             missingBranches = list(branchNames - otherBranches)
             additionalBranches = list(otherBranches - branchNames)
-            print("missing: " + str(missingBranches) + "\n Additional: " + str(additionalBranches))
-            
-            has_none = False
+            print(
+                "missing: "
+                + str(missingBranches)
+                + "\n Additional: "
+                + str(additionalBranches)
+            )
             for br in missingBranches:
                 # fill "Other"
-                # check if brObj is nil
-                if obj.GetListOfBranches().FindObject(br) == None:
-                    print(f"Branch {br} not found in main tree")
-                    has_none = True
-                    continue
-            if has_none:
-                continue
-            
-            for br in missingBranches:
                 zeroFill(otherObj, br, obj.GetListOfBranches().FindObject(br))
             for br in additionalBranches:
                 # fill main
                 branchNames.add(br)
                 zeroFill(obj, br, otherObj.GetListOfBranches().FindObject(br))
             # merge immediately for trees
-        if isTree and obj.GetName() == 'Runs':
+        if isTree and obj.GetName() == "Runs":
             otherObj.SetAutoFlush(0)
-            otherBranches = set([x.GetName()
-                                 for x in otherObj.GetListOfBranches()])
+            otherBranches = set([x.GetName() for x in otherObj.GetListOfBranches()])
             missingBranches = list(branchNames - otherBranches)
             additionalBranches = list(otherBranches - branchNames)
-            print("missing: " + str(missingBranches) + "\n Additional: " + str(additionalBranches))
+            print(
+                "missing: "
+                + str(missingBranches)
+                + "\n Additional: "
+                + str(additionalBranches)
+            )
             for br in missingBranches:
                 # fill "Other"
-                zeroFill(otherObj, br, obj.GetListOfBranches(
-                ).FindObject(br), allowNonBool=True)
+                zeroFill(
+                    otherObj,
+                    br,
+                    obj.GetListOfBranches().FindObject(br),
+                    allowNonBool=True,
+                )
             for br in additionalBranches:
                 # fill main
                 branchNames.add(br)
-                zeroFill(obj, br, otherObj.GetListOfBranches(
-                ).FindObject(br), allowNonBool=True)
+                zeroFill(
+                    obj,
+                    br,
+                    otherObj.GetListOfBranches().FindObject(br),
+                    allowNonBool=True,
+                )
             # merge immediately for trees
         if isTree:
             obj.Merge(inputs, "fast" if goFast else "")
@@ -113,7 +135,7 @@ for e in fileHandles[0].GetListOfKeys():
             if st.GetString() != obj.GetString():
                 print("Strings are not matching")
         obj.Write()
-    elif obj.IsA().InheritsFrom(ROOT.THnSparse.Class()) :
+    elif obj.IsA().InheritsFrom(ROOT.THnSparse.Class()):
         obj.Merge(inputs)
         obj.Write()
     else:

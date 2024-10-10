@@ -179,6 +179,9 @@ def parse_sample_xsec(cfgfile):
         xsecs = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(xsecs)
         return xsecs.xsecs
+    if cfgfile.endswith('.json') and 'run3' in cfgfile:
+        with open(cfgfile) as f:
+            return json.load(f)
     xsec_dict = {}
     with open(cfgfile) as f:
         for l in f:
@@ -721,6 +724,16 @@ def run_add_weight(args):
             os.makedirs(tmp_parts_dir)
 
     for samp in md['samples']:
+        logging.info(f"Processing sample {samp}")
+        if args.weight_file and (samp not in xsec_dict):
+            logging.error(f'Cannot find xsec for sample {samp} from {args.weight_file}')
+            ans = input(f"Skip the sample {samp} and continue? [yn] ")
+            if ans.lower()[0] != "y":
+                logging.error("Exiting...")
+                exit(1)
+            else:
+                continue
+
         outfile = '{parts_dir}/{samp}_tree.root'.format(
             parts_dir=tmp_parts_dir if args.use_tmpdir else parts_dir, samp=samp)
         # check if "haddnano.py" is available
@@ -728,7 +741,7 @@ def run_add_weight(args):
             # wget it
             logging.info('Downloading haddnano.py...')
             subprocess.Popen('wget https://raw.githubusercontent.com/cms-nanoAOD/nanoAOD-tools/master/scripts/haddnano.py', shell=True).communicate()
-        
+
         cmd = 'alias python=python3; python3 haddnano.py {outfile} {outputdir}/pieces/{samp}_*_tree.root'.format(
             outfile=outfile, outputdir=args.outputdir, samp=samp)
         logging.debug('...' + cmd)
@@ -747,24 +760,26 @@ def run_add_weight(args):
         stdout, stderr = p.communicate()
         # print(f"stdout: {stdout}")
         if p.returncode != 0:
-            raise RuntimeError(f'Hadd failed with error message: {stderr.strip()}')
+            logging.error(f'Hadd failed with error message at {samp=}: {stderr.strip()}')
+            # ask to skip the sample
+            ans = input(f'Skip the sample {samp} and continue? [yn] ')
+            if ans.lower()[0] != 'y':
+                logging.error('Exiting...')
+                exit(1)
+            else:
+                continue
 
         # add weight
         if args.weight_file:
-            if ('-' not in samp and '_' not in samp ) or ('jetht' in samp.lower()) or ('jetmet' in samp.lower()): 
+            if ('jetht' in samp.lower()) or ('jetmet' in samp.lower()): 
                 # data
                 logging.info('Not adding weight to sample %s' % samp)
             elif args.run_data:
                 logging.info('Not adding weight to sample %s because --run-data is called' % samp)
             else:
-                try:
-                    xsec = xsec_dict[samp]
-                except KeyError as e:
-                    logging.error('Cannot find xsec for sample %s in %s' % samp, args.weight_file)
-                    raise e
-                if xsec is not None:
-                    logging.info('Adding xsec weight to file %s, xsec=%f' % (outfile, xsec))
-                    add_weight_branch(outfile, xsec)
+                xsec = xsec_dict[samp]
+                logging.info(f'Adding xsec weight to file {outfile}, xsec={xsec}')
+                add_weight_branch(outfile, xsec)
 
         if args.use_tmpdir:
             shutil.copy(outfile, parts_dir)
