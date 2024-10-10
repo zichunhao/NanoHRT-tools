@@ -736,6 +736,14 @@ def run_add_weight(args):
 
         outfile = '{parts_dir}/{samp}_tree.root'.format(
             parts_dir=tmp_parts_dir if args.use_tmpdir else parts_dir, samp=samp)
+        
+        # Check if the output file already exists
+        if os.path.exists(outfile):
+            ans = input(f"Output file {outfile} already exists. Overwrite? [yn] ")
+            if ans.lower()[0] != "y":
+                logging.info(f"Output file {outfile} already exists. Skipping...")
+                continue
+        
         # check if "haddnano.py" is available
         if not os.path.exists('haddnano.py'):
             # wget it
