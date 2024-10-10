@@ -725,7 +725,7 @@ def run_add_weight(args):
 
     for samp in md['samples']:
         logging.info(f"Processing sample {samp}")
-        if args.weight_file and (samp not in xsec_dict):
+        if (not args.run_data) and args.weight_file and (samp not in xsec_dict):
             logging.error(f'Cannot find xsec for sample {samp} from {args.weight_file}')
             ans = input(f"Skip the sample {samp} and continue? [yn] ")
             if ans.lower()[0] != "y":
