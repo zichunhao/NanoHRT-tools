@@ -742,19 +742,29 @@ def run_add_weight(args):
 
         outfile = '{parts_dir}/{samp}_tree.root'.format(
             parts_dir=tmp_parts_dir if args.use_tmpdir else parts_dir, samp=samp)
-        
+        logging.info(f"Output file: {outfile}")
+
+        final_outputfile = f"{parts_dir}/{samp}_tree.root"
         # Check if the output file already exists
-        if os.path.exists(outfile):
-            ans = input(f"Output file {outfile} already exists. Overwrite? [yn] ")
+        if os.path.exists(final_outputfile):
+            ans = input(f"Output file {final_outputfile} already exists. Overwrite? [yn] ")
             if ans.lower()[0] != "y":
-                logging.info(f"Output file {outfile} already exists. Skipping...")
+                logging.info(
+                    f"Output file {final_outputfile} already exists. Skipping..."
+                )
                 continue
-        
+            # logging.info(
+            #     f"Output file {final_outputfile} already exists. Skipping..."
+            # )
+            # continue
+
         # check if "haddnano.py" is available
         if not os.path.exists('haddnano.py'):
             # wget it
             logging.info('Downloading haddnano.py...')
-            subprocess.Popen('wget https://raw.githubusercontent.com/cms-nanoAOD/nanoAOD-tools/master/scripts/haddnano.py', shell=True).communicate()
+            # url = "wget https://raw.githubusercontent.com/cms-nanoAOD/nanoAOD-tools/master/scripts/haddnano.py"
+            url = "https://raw.githubusercontent.com/zichunhao/nanohadd/refs/heads/main/haddnano.py"
+            subprocess.Popen(url, shell=True).communicate()
 
         cmd = 'alias python=python3; python3 haddnano.py {outfile} {outputdir}/pieces/{samp}_*_tree.root'.format(
             outfile=outfile, outputdir=args.outputdir, samp=samp)
