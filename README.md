@@ -13,7 +13,7 @@ git clone https://github.com/cms-nanoAOD/nanoAOD-tools.git PhysicsTools/NanoAODT
 ### Get customized NanoAOD tools for HeavyResTagging (NanoHRT-tools)
 
 ```bash
-git clone https://github.com/colizz/NanoHRT-tools.git PhysicsTools/NanoHRTTools -b dev-noSvCut
+git clone https://github.com/colizz/NanoHRT-tools.git PhysicsTools/NanoHRTTools -b dev-UL-0201
 ```
 
 ### Compile
@@ -35,17 +35,17 @@ cd PhysicsTools/NanoHRTTools/run
 ##### Make trees to produce ntuples for heavy flavour tagging (bb/cc) measurement
 
 ```bash
-python runHeavyFlavTrees.py -o /eos/<some-eos-path-on-lxplus>/20230926_ULNanoV9_noSvCut --jet-type ak8 --channel qcd --year 2018 --sfbdt -98 -n 1
-python runHeavyFlavTrees.py -o /eos/<some-eos-path-on-lxplus>/20230926_ULNanoV9_noSvCut --jet-type ak8 --channel qcd --year 2018 --run-data --sfbdt -98 -n 1
+python runHeavyFlavTrees.py -o /eos/<some-eos-path-on-lxplus>/20230926_ULNanoV9 --jet-type ak8 --channel qcd --year 2018 --sfbdt 0 -n 1
+python runHeavyFlavTrees.py -o /eos/<some-eos-path-on-lxplus>/20230926_ULNanoV9 --jet-type ak8 --channel qcd --year 2018 --run-data --sfbdt 0 -n 1
 
-python runHeavyFlavTrees.py -o /eos/<some-eos-path-on-lxplus>/20230926_ULNanoV9_noSvCut --jet-type ak8 --channel qcd --year 2017 --sfbdt -98 -n 1
-python runHeavyFlavTrees.py -o /eos/<some-eos-path-on-lxplus>/20230926_ULNanoV9_noSvCut --jet-type ak8 --channel qcd --year 2017 --run-data --sfbdt -98 -n 1
+python runHeavyFlavTrees.py -o /eos/<some-eos-path-on-lxplus>/20230926_ULNanoV9 --jet-type ak8 --channel qcd --year 2017 --sfbdt 0 -n 1
+python runHeavyFlavTrees.py -o /eos/<some-eos-path-on-lxplus>/20230926_ULNanoV9 --jet-type ak8 --channel qcd --year 2017 --run-data --sfbdt 0 -n 1
 
-python runHeavyFlavTrees.py -o /eos/<some-eos-path-on-lxplus>/20230926_ULNanoV9_noSvCut --jet-type ak8 --channel qcd --year 2016 --sfbdt -98 -n 1
-python runHeavyFlavTrees.py -o /eos/<some-eos-path-on-lxplus>/20230926_ULNanoV9_noSvCut --jet-type ak8 --channel qcd --year 2016 --run-data --sfbdt -98 -n 1
+python runHeavyFlavTrees.py -o /eos/<some-eos-path-on-lxplus>/20230926_ULNanoV9 --jet-type ak8 --channel qcd --year 2016 --sfbdt 0 -n 1
+python runHeavyFlavTrees.py -o /eos/<some-eos-path-on-lxplus>/20230926_ULNanoV9 --jet-type ak8 --channel qcd --year 2016 --run-data --sfbdt 0 -n 1
 
-python runHeavyFlavTrees.py -o /eos/<some-eos-path-on-lxplus>/20230926_ULNanoV9_noSvCut --jet-type ak8 --channel qcd --year 2015 --sfbdt -98 -n 1
-python runHeavyFlavTrees.py -o /eos/<some-eos-path-on-lxplus>/20230926_ULNanoV9_noSvCut --jet-type ak8 --channel qcd --year 2015 --run-data --sfbdt -98 -n 1
+python runHeavyFlavTrees.py -o /eos/<some-eos-path-on-lxplus>/20230926_ULNanoV9 --jet-type ak8 --channel qcd --year 2015 --sfbdt 0 -n 1
+python runHeavyFlavTrees.py -o /eos/<some-eos-path-on-lxplus>/20230926_ULNanoV9 --jet-type ak8 --channel qcd --year 2015 --run-data --sfbdt 0 -n 1
 ```
 
 where, `/eos/<some-eos-path-on-lxplus>/` is some path on EOS you have write access to.

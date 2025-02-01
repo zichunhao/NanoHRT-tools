@@ -7,10 +7,31 @@ import sys
 import json
 import re
 import shutil
-import tempfile
 
 import logging
-logging.basicConfig(level=logging.DEBUG, format='[%(asctime)s] %(levelname)s: %(message)s')
+logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s')
+
+
+def check_grid_proxy(verbose=False, retry=3):
+    import subprocess
+    retry_count = 0
+    while True:
+        retry_count += 1
+        if retry_count > retry:
+            raise RuntimeError('Failed to set up valid grid proxy')
+        p = subprocess.Popen('voms-proxy-info -exists', shell=True)
+        p.communicate()
+        if p.returncode == 0:
+            if verbose:
+                logging.info('Grid proxy is valid:')
+                p = subprocess.Popen('voms-proxy-info', shell=True)
+                p.communicate()
+            break
+        else:
+            if verbose:
+                logging.info('No valid grid proxy, will run `voms-proxy-init -rfc -voms cms -valid 192:00`.')
+            p = subprocess.Popen('voms-proxy-init -rfc -voms cms -valid 192:00', shell=True)
+            p.communicate()
 
 
 def get_chunks(l, n):
@@ -20,8 +41,8 @@ def get_chunks(l, n):
 
 
 def natural_sort(l):
-    convert = lambda text: int(text) if text.isdigit() else text.lower()
-    alphanum_key = lambda key: [convert(c) for c in re.split('([0-9]+)', key)]
+    def convert(text): return int(text) if text.isdigit() else text.lower()
+    def alphanum_key(key): return [convert(c) for c in re.split('([0-9]+)', key)]
     return sorted(l, key=alphanum_key)
 
 
@@ -42,7 +63,8 @@ def get_filenames(dataset, retry=3):
     cmd = ['dasgoclient', '-query', query, '-json']
     retry_count = 0
     while True:
-        logging.info('Querying DAS:\n  %s' % ' '.join(cmd) + '' if retry_count == 0 else '\n... retry %d ...' % retry_count)
+        logging.info('Querying DAS:\n  %s' % ' '.join(cmd) + '' if retry_count ==
+                     0 else '\n... retry %d ...' % retry_count)
         if retry_count > 0:
             time.sleep(3)
         retry_count += 1
@@ -93,10 +115,7 @@ def add_weight_branch(file, xsec, lumi=1000., treename='Events', wgtbranch='xsec
         if lenVar is not None:
             b_lenVar.ResetAddress()
 
-    filetmp = os.path.join(tempfile.mkdtemp(), file.split('/')[-1])
-    import shutil
-    shutil.move(file, filetmp)
-    f = ROOT.TFile(filetmp, 'UPDATE')
+    f = ROOT.TFile(file, 'UPDATE')
     run_tree = f.Get('Runs')
     tree = f.Get(treename)
 
@@ -110,20 +129,23 @@ def add_weight_branch(file, xsec, lumi=1000., treename='Events', wgtbranch='xsec
     if tree.GetBranch('LHEScaleWeight'):
         run_tree.GetEntry(0)
         nScaleWeights = run_tree.nLHEScaleSumw
-        scale_weight_norm_buff = array('f', [sumwgts / _get_sum(run_tree, 'LHEScaleSumw[%d]*genEventSumw' % i) for i in range(nScaleWeights)])
+        scale_weight_norm_buff = array('f',
+                                       [sumwgts / _get_sum(run_tree, 'LHEScaleSumw[%d]*genEventSumw' % i)
+                                        for i in range(nScaleWeights)])
         logging.info('LHEScaleWeightNorm: ' + str(scale_weight_norm_buff))
         _fill_const_branch(tree, 'LHEScaleWeightNorm', scale_weight_norm_buff, lenVar='nLHEScaleWeight')
 
     if tree.GetBranch('LHEPdfWeight'):
         run_tree.GetEntry(0)
         nPdfWeights = run_tree.nLHEPdfSumw
-        pdf_weight_norm_buff = array('f', [sumwgts / _get_sum(run_tree, 'LHEPdfSumw[%d]*genEventSumw' % i) for i in range(nPdfWeights)])
+        pdf_weight_norm_buff = array('f',
+                                     [sumwgts / _get_sum(run_tree, 'LHEPdfSumw[%d]*genEventSumw' % i)
+                                      for i in range(nPdfWeights)])
         logging.info('LHEPdfWeightNorm: ' + str(pdf_weight_norm_buff))
         _fill_const_branch(tree, 'LHEPdfWeightNorm', pdf_weight_norm_buff, lenVar='nLHEPdfWeight')
 
     tree.Write(treename, ROOT.TObject.kOverwrite)
     f.Close()
-    shutil.move(filetmp, file)
 
 
 def load_dataset_file(dataset_file):
@@ -144,10 +166,22 @@ def load_dataset_file(dataset_file):
                 sample_list = [samp_or_list]
             outtree_to_samples[outtree_name].append(samp)
             samp_to_datasets[samp] = sample_list
+    logging.info(f"outtree_to_samples: {outtree_to_samples}")
+    logging.info(f"samp_to_datasets: {samp_to_datasets}")
     return outtree_to_samples, samp_to_datasets
 
 
 def parse_sample_xsec(cfgfile):
+    if cfgfile.endswith('.py'):
+        # directly import the dict called xsecs
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('xsecs', cfgfile)
+        xsecs = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(xsecs)
+        return xsecs.xsecs
+    if cfgfile.endswith('.json') and 'run3' in cfgfile:
+        with open(cfgfile) as f:
+            return json.load(f)
     xsec_dict = {}
     with open(cfgfile) as f:
         for l in f:
@@ -192,11 +226,13 @@ def tar_cmssw(tarball_suffix, batchMode=False):
     if os.path.exists(cmsswtar):
         if batchMode:
             return
-        ans = input('CMSSW tarball %s already exists, remove? [yn] ' % cmsswtar)
-        if ans.lower()[0] == 'y':
-            os.remove(cmsswtar)
-        else:
-            return
+        # ans = input('CMSSW tarball %s already exists, remove? [yn] ' % cmsswtar)
+        # if ans.lower()[0] == 'y':
+        #     os.remove(cmsswtar)
+        # else:
+        #     return
+        # TODO: change it back
+        os.remove(cmsswtar)
 
     def exclude(tarinfo):
         exclude_patterns = ['/.git/', '/tmp/', '/jobs.*/', '/logs/', ]
@@ -212,6 +248,144 @@ def tar_cmssw(tarball_suffix, batchMode=False):
         tar.add(cmsswdir, arcname=os.path.basename(cmsswdir), filter=exclude)
 
 
+def create_metadata_from_json(args):
+    '''
+    Create metadata from JSON input
+
+    Metadata is a dict including:
+        - options
+        - 'samples': (list)
+        - 'inputfiles': (dict, sample -> files)
+        - 'jobs': (list of dict)
+            - jobitem: (dict, keys: 'samp', 'idx', 'inputfiles')
+    '''
+    import subprocess
+
+    arg_blacklist = ['metadata', 'select', 'ignore', 'site', 'datasets']
+    md = {k: args.__dict__[k] for k in args.__dict__ if k not in arg_blacklist}
+
+    # git info
+    cmd = 'git rev-parse HEAD && git status'
+    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    md['git_info'] = p.communicate()[0].decode('utf-8')
+
+    md['samples'] = []
+    md['inputfiles'] = {}
+    md['jobs'] = []
+
+    def select_sample(dataset):
+        keep = True
+        if args.select:
+            sels = args.select.split(',')
+            match = False
+            for s in sels:
+                if re.search(s, dataset):
+                    logging.debug('Selecting dataset %s', dataset)
+                    match = True
+                    break
+            if not match:
+                keep = False
+        elif args.ignore:
+            vetoes = args.ignore.split(',')
+            match = False
+            for v in vetoes:
+                if re.search(v, dataset):
+                    logging.debug('Ignoring dataset %s', dataset)
+                    match = True
+                    break
+            if match:
+                keep = False
+        return keep
+
+    def get_chunks(lst, n):
+        """Yield successive n-sized chunks from lst."""
+        for i in range(0, len(lst), n):
+            yield lst[i:i + n]
+
+    def process_remote_prefix(filepath):
+        """Strip the remote prefix from the filepath and ensure single leading slash."""
+        if not args.prefetch:
+            stripped = re.sub(r"^root://[^/]+/?", "/", filepath)
+            return "/" + stripped.lstrip("/")
+        else:
+            # if "root://" in filepath:
+            #     return filepath
+            # else:
+            #     if filepath.startswith("/eos/uscms"):
+            #         root_prefix = "root://cmsxrootd.fnal.gov/"
+            #         stripped_filepath = filepath.replace("/eos/uscms", "")
+            #     else:
+            #         root_prefix = "root://xrootd-cms.infn.it/"
+            #         stripped_filepath = filepath
+
+            #     if not _xrdcp_error_logged:
+            #         logging.error(f"--xrdcp is set but the file {filepath}) appears to be local. Prepending {root_prefix}.")
+            #         _xrdcp_error_logged = True  # log only once
+            #     return root_prefix + stripped_filepath.lstrip("/")
+            return filepath  # will be processed in processor.py
+
+    def merge_paths(inputdir, filepath):
+        inputdir = inputdir.rstrip('/')
+        filepath = filepath.lstrip('/')
+        return os.path.join(inputdir, filepath)
+
+    # Load JSON file
+    with open(args.datasets, 'r') as f:
+        data = json.load(f)
+
+    # Check if the specified year exists in the data
+    if args.year not in data:
+        raise ValueError(f"Specified year {args.year} not found in the dataset")
+
+    year_data = data[args.year]
+    for category in year_data:
+        category_is_data = ("jetmet" in category.lower() or "jetht" in category.lower())
+        if args.run_data:
+            if not category_is_data:
+                continue
+        else:
+            # mc
+            if category_is_data:
+                continue
+
+        for dataset in year_data[category]:
+            if select_sample(dataset):
+                samp_tag = dataset
+                md["samples"].append(samp_tag)
+
+                # Strip remote prefix and handle files
+                filelist = [process_remote_prefix(f) for f in year_data[category][dataset]]
+                if args.inputdir:
+                    # If inputdir is specified, merge paths
+                    merged_filelist = []
+                    for file_path in filelist:
+                        merged_path = merge_paths(args.inputdir, file_path)
+                        if os.path.exists(merged_path):
+                            if os.path.getsize(merged_path) < 1000:
+                                logging.warning(f'Ignoring small file: {merged_path}')
+                                continue
+                            merged_filelist.append(merged_path)
+                        else:
+                            logging.warning(f'File not found: {merged_path}')
+                    if len(merged_filelist) > 0:
+                        md['inputfiles'][samp_tag] = sorted(merged_filelist)
+                    else:
+                        pass
+                else:
+                    # Use stripped remote files
+                    md["inputfiles"][samp_tag] = sorted(filelist)
+
+    # sort the samples
+    md['samples'] = sorted(md['samples'])
+
+    # create jobs
+    for samp in md['samples']:
+        for idx, chunk in enumerate(get_chunks(md['inputfiles'][samp], args.nfiles_per_job)):
+            md['jobs'].append({'samp': samp, 'idx': idx, 'inputfiles': chunk})
+
+    return md
+
+
 def create_metadata(args):
     '''
     create metadata
@@ -223,6 +397,9 @@ def create_metadata(args):
         - 'jobs': (list of dict)
             - jobitem: (dict, keys: 'samp', 'idx', 'inputfiles')
     '''
+    if args.datasets.endswith('.json'):
+        logging.info('Loading metadata from JSON file %s' % args.datasets)
+        return create_metadata_from_json(args)
 
     arg_blacklist = ['metadata', 'select', 'ignore', 'site', 'datasets']
     md = {k: args.__dict__[k] for k in args.__dict__ if k not in arg_blacklist}
@@ -303,7 +480,8 @@ def create_metadata(args):
                     dataset0 = dataset.split('/')[1]
                 else:
                     if dataset0 != dataset.split('/')[1]:
-                        raise RuntimeError('Inconsistent dataset for samp `%s`: `%s` vs `%s`' % (samp, dataset0, dataset))
+                        raise RuntimeError('Inconsistent dataset for samp `%s`: `%s` vs `%s`' %
+                                           (samp, dataset0, dataset))
                 if select_sample(dataset):
                     filelist.extend(get_filenames(dataset))
             if len(filelist):
@@ -374,7 +552,8 @@ def check_job_status(args):
 
 
 def submit(args, configs):
-    logging.info('Preparing jobs...\n  - modules: %s\n  - cut: %s\n  - outputdir: %s' % (str(args.imports), args.cut, args.outputdir))
+    logging.info('Preparing jobs...\n  - modules: %s\n  - cut: %s\n  - outputdir: %s' %
+                 (str(args.imports), args.cut, args.outputdir))
 
     scriptfile = os.path.join(os.path.dirname(__file__), 'run_postproc_condor.sh')
     macrofile = os.path.join(os.path.dirname(__file__), 'processor.py')
@@ -394,19 +573,23 @@ def submit(args, configs):
             if args.batch:
                 logging.warning('jobdir %s already exists! Will not submit new jobs!' % args.jobdir)
                 return
-            ans = input('jobdir %s already exists, remove? [yn] ' % args.jobdir)
-            if ans.lower()[0] == 'y':
-                shutil.rmtree(args.jobdir)
-            else:
-                sys.exit(1)
+            # ans = input('jobdir %s already exists, remove? [yn] ' % args.jobdir)
+            # if ans.lower()[0] == 'y':
+            #     shutil.rmtree(args.jobdir)
+            # else:
+            #     sys.exit(1)
+            # TODO: change it back
+            shutil.rmtree(args.jobdir)
         os.makedirs(args.jobdir)
 
         # create outputdir
         if os.path.exists(joboutputdir):
             if not args.batch:
-                ans = input('outputdir %s already exists, continue? [yn] ' % joboutputdir)
-                if ans.lower()[0] == 'n':
-                    sys.exit(1)
+                # ans = input('outputdir %s already exists, continue? [yn] ' % joboutputdir)
+                # if ans.lower()[0] == 'n':
+                #     sys.exit(1)
+                # TODO: change it back
+                pass
         else:
             os.makedirs(joboutputdir)
 
@@ -424,7 +607,7 @@ def submit(args, configs):
             json.dump(md, f, ensure_ascii=True, indent=2, sort_keys=True)
         # store the metadata file to the outputdir as well
         import gzip
-        with gzip.open(os.path.join(args.outputdir, args.metadata+'.gz'), 'w') as fout:
+        with gzip.open(os.path.join(args.outputdir, args.metadata + '.gz'), 'w') as fout:
             fout.write(json.dumps(md).encode('utf-8'))
 
         # create CMSSW tarball
@@ -443,7 +626,8 @@ def submit(args, configs):
         f.write('\n'.join(jobids))
 
     # prepare the list of files to transfer
-    files_to_transfer = [os.path.expandvars('$CMSSW_BASE/../CMSSW%s.tar.gz' % args.tarball_suffix), macrofile, metadatafile] + configfiles
+    files_to_transfer = [os.path.expandvars('$CMSSW_BASE/../CMSSW%s.tar.gz' %
+                                            args.tarball_suffix), macrofile, metadatafile] + configfiles
     if args.branchsel_in:
         files_to_transfer.append(args.branchsel_in)
         shutil.copy2(args.branchsel_in, args.jobdir)
@@ -457,13 +641,19 @@ def submit(args, configs):
     shutil.copy2(macrofile, args.jobdir)
     files_to_transfer = [os.path.abspath(f) for f in files_to_transfer]
 
-    condordesc = '''\
+    try:
+        proxy_path = os.environ['X509_USER_PROXY']
+    except KeyError:
+        raise RuntimeError('No grid proxy found. Create it and set X509_USER_PROXY.')
+
+    condordesc = """\
 universe              = vanilla
 requirements          = (Arch == "X86_64") && (OpSys == "LINUX")
 request_memory        = {request_memory}
 request_disk          = 10000000
 executable            = {scriptfile}
-arguments             = $(jobid)
+proxy_path            = {proxy_path}
+arguments             = $(jobid) $(proxy_path)
 transfer_input_files  = {files_to_transfer}
 output                = {jobdir}/$(jobid).out
 error                 = {jobdir}/$(jobid).err
@@ -477,38 +667,49 @@ on_exit_remove        = (ExitBySignal == False) && (ExitCode == 0)
 on_exit_hold          = ( (ExitBySignal == True) || (ExitCode != 0) )
 on_exit_hold_reason   = strcat("Job held by ON_EXIT_HOLD due to ", ifThenElse((ExitBySignal == True), "exit by signal", strcat("exit code ",ExitCode)), ".")
 periodic_release      = (NumJobStarts < 3) && ((CurrentTime - EnteredCurrentStatus) > 10*60)
-{transfer_output}
+transfer_output_files = done.cc
 {site}
 {maxruntime}
 {condor_extras}
 
 queue jobid from {jobids_file}
-'''.format(scriptfile=os.path.abspath(scriptfile),
-           files_to_transfer=','.join(files_to_transfer),
-           jobdir=os.path.abspath(args.jobdir),
-           # when outputdir is on EOS, disable file transfer as file is manually copied to EOS in processor.py
-           initialdir=os.path.abspath(args.jobdir) if joboutputdir.startswith('/eos') else joboutputdir,
-           transfer_output='transfer_output_files = ""' if joboutputdir.startswith('/eos') else '',
-           jobids_file=os.path.abspath(jobids_file),
-           site='+DESIRED_Sites = "%s"' % args.site if args.site else '',
-           maxruntime='+MaxRuntime = %s' % args.max_runtime if args.max_runtime else '',
-           request_memory=args.request_memory,
-           condor_extras=args.condor_extras,
+""".format(
+        scriptfile=os.path.abspath(scriptfile),
+        proxy_path=proxy_path,
+        files_to_transfer=",".join(files_to_transfer + [proxy_path]),
+        jobdir=os.path.abspath(args.jobdir),
+        # when outputdir is on EOS, disable file transfer as file is manually copied to EOS in processor.py
+        initialdir=(
+            os.path.abspath(args.jobdir)
+            if joboutputdir.startswith("/eos")
+            else joboutputdir
+        ),
+        jobids_file=os.path.abspath(jobids_file),
+        site='+DESIRED_Sites = "%s"' % args.site if args.site else "",
+        maxruntime="+MaxRuntime = %s" % args.max_runtime if args.max_runtime else "",
+        request_memory=args.request_memory,
+        condor_extras=args.condor_extras,
     )
     condorfile = os.path.join(args.jobdir, 'submit.cmd')
     with open(condorfile, 'w') as f:
         f.write(condordesc)
 
+    check_grid_proxy()
     cmd = 'condor_submit {condorfile}'.format(condorfile=condorfile)
     print('Run the following command to submit the jobs:\n  %s' % cmd)
-    if args.batch:
-        import subprocess
-        subprocess.Popen(cmd, shell=True).communicate()
+    print(cmd)
+
+    # if args.batch:
+    #    import subprocess
+    #    subprocess.Popen(cmd, shell=True).communicate()
 
 
 def run_add_weight(args):
+    logging.info(f"run_add_weight: args={args}")
     if args.weight_file:
         xsec_dict = parse_sample_xsec(args.weight_file)
+        logging.info(f"Loaded xsec info from {args.weight_file}")
+        logging.info(f"xsec_dict: {xsec_dict}")
 
     import subprocess
     md = load_metadata(args)
@@ -518,31 +719,92 @@ def run_add_weight(args):
         return
     if not os.path.exists(parts_dir):
         os.makedirs(parts_dir)
+    if args.use_tmpdir:
+        tmpdir = os.environ.get('TMPDIR', os.path.expandvars('/tmp/$USER'))
+        tmp_parts_dir = os.path.join(tmpdir, os.path.basename(args.outputdir), 'parts')
+        logging.info('Using tmpdir %s for merging.' % tmp_parts_dir)
+        if not os.path.exists(tmp_parts_dir):
+            os.makedirs(tmp_parts_dir)
+
     for samp in md['samples']:
-        outfile = '{parts_dir}/{samp}_tree.root'.format(parts_dir=parts_dir, samp=samp)
-        cmd = 'haddnano.py {outfile} {outputdir}/pieces/{samp}_*_tree.root'.format(outfile=outfile, outputdir=args.outputdir, samp=samp)
+        logging.info(f"Processing sample {samp}")
+        if (not args.run_data) and args.weight_file and (samp not in xsec_dict):
+            logging.error(f'Cannot find xsec for sample {samp} from {args.weight_file}')
+            ans = input(f"Skip the sample {samp} and continue? [yn] ")
+            if ans.lower()[0] != "y":
+                logging.error("Exiting...")
+                exit(1)
+            else:
+                continue
+
+        outfile = '{parts_dir}/{samp}_tree.root'.format(
+            parts_dir=tmp_parts_dir if args.use_tmpdir else parts_dir, samp=samp)
+        logging.info(f"Output file: {outfile}")
+
+        final_outputfile = f"{parts_dir}/{samp}_tree.root"
+        # Check if the output file already exists
+        if os.path.exists(final_outputfile):
+            ans = input(f"Output file {final_outputfile} already exists. Overwrite? [yn] ")
+            if ans.lower()[0] != "y":
+                logging.info(
+                    f"Output file {final_outputfile} already exists. Skipping..."
+                )
+                continue
+            # logging.info(
+            #     f"Output file {final_outputfile} already exists. Skipping..."
+            # )
+            # continue
+
+        # check if "haddnano.py" is available
+        if not os.path.exists('haddnano.py'):
+            # wget it
+            logging.info('Downloading haddnano.py...')
+            # url = "wget https://raw.githubusercontent.com/cms-nanoAOD/nanoAOD-tools/master/scripts/haddnano.py"
+            url = "https://raw.githubusercontent.com/zichunhao/nanohadd/refs/heads/main/haddnano.py"
+            subprocess.Popen(url, shell=True).communicate()
+
+        cmd = 'alias python=python3; python3 haddnano.py {outfile} {outputdir}/pieces/{samp}_*_tree.root'.format(
+            outfile=outfile, outputdir=args.outputdir, samp=samp)
         logging.debug('...' + cmd)
-        p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        log = p.communicate()[0]
-        log_lower = log.lower().decode('utf-8')
-        if 'error' in log_lower or 'fail' in log_lower:
-            logging.error(log)
+        # p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        # log = p.communicate()[0]
+        # log_lower = log.lower().decode('utf-8')
+        # if 'error' in log_lower or 'fail' in log_lower:
+        #     logging.error(log)
+        p = subprocess.Popen(
+            cmd,
+            shell=True, 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.PIPE, 
+            text=True
+        )
+        stdout, stderr = p.communicate()
+        # print(f"stdout: {stdout}")
         if p.returncode != 0:
-            raise RuntimeError('Hadd failed on %s!' % samp)
+            logging.error(f'Hadd failed with error message at {samp=}: {stderr.strip()}')
+            # ask to skip the sample
+            ans = input(f'Skip the sample {samp} and continue? [yn] ')
+            if ans.lower()[0] != 'y':
+                logging.error('Exiting...')
+                exit(1)
+            else:
+                continue
 
         # add weight
         if args.weight_file:
-            try:
+            if ('jetht' in samp.lower()) or ('jetmet' in samp.lower()): 
+                # data
+                logging.info('Not adding weight to sample %s' % samp)
+            elif args.run_data:
+                logging.info('Not adding weight to sample %s because --run-data is called' % samp)
+            else:
                 xsec = xsec_dict[samp]
-                if xsec is not None:
-                    logging.info('Adding xsec weight to file %s, xsec=%f' % (outfile, xsec))
-                    add_weight_branch(outfile, xsec)
-            except KeyError as e:
-                if '-' not in samp and '_' not in samp:
-                    # data
-                    logging.info('Not adding weight to sample %s' % samp)
-                else:
-                    raise e
+                logging.info(f'Adding xsec weight to file {outfile}, xsec={xsec}')
+                add_weight_branch(outfile, xsec)
+
+        if args.use_tmpdir:
+            shutil.copy(outfile, parts_dir)
+            os.remove(outfile)
     with open(status_file, 'w'):
         pass
 
@@ -560,6 +822,13 @@ def run_merge(args):
     merge_dict_found = {}  # outname: [infile list]
     outtree_to_samples, _ = load_dataset_file(args.datasets)
 
+    if args.use_tmpdir:
+        tmpdir = os.environ.get('TMPDIR', os.path.expandvars('/tmp/$USER'))
+        tmp_outputdir = os.path.join(tmpdir, os.path.basename(args.outputdir))
+        logging.info('Using tmpdir %s for merging.' % tmp_outputdir)
+        if not os.path.exists(tmp_outputdir):
+            os.makedirs(tmp_outputdir)
+
     for outtree_name in outtree_to_samples:
         outname = '%s_tree.root' % outtree_name
         merge_dict[outname] = []
@@ -575,12 +844,14 @@ def run_merge(args):
             logging.warning('Ignore %s as no input files are found.' % outname)
             continue
         if len(merge_dict_found[outname]) != len(merge_dict[outname]):
-            raise RuntimeError('Incomplete files for merging, missing: %s' % str(set(merge_dict[outname]) - set(merge_dict_found[outname])))
+            raise RuntimeError('Incomplete files for merging, missing: %s' %
+                               str(set(merge_dict[outname]) - set(merge_dict_found[outname])))
 
         if len(merge_dict_found[outname]) == 1:
             os.rename(list(merge_dict_found[outname])[0], os.path.join(args.outputdir, outname))
         else:
-            cmd = 'haddnano.py {outfile} {infiles}'.format(outfile=os.path.join(args.outputdir, outname), infiles=' '.join(merge_dict_found[outname]))
+            outfile = os.path.join(tmp_outputdir if args.use_tmpdir else args.outputdir, outname)
+            cmd = 'haddnano.py {outfile} {infiles}'.format(outfile=outfile, infiles=' '.join(merge_dict_found[outname]))
             logging.debug('...' + cmd)
             p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             log = p.communicate()[0]
@@ -589,6 +860,9 @@ def run_merge(args):
             log_lower = log.lower().decode('utf-8')
             if 'error' in log_lower or 'fail' in log_lower:
                 logging.error(log)
+            if args.use_tmpdir:
+                shutil.copy(outfile, args.outputdir)
+                os.remove(outfile)
 
     with open(status_file, 'w'):
         pass
@@ -610,117 +884,133 @@ def run_all(args):
 def get_arg_parser():
     import argparse
     parser = argparse.ArgumentParser('Preprocess ntuples')
+
     parser.add_argument('-i', '--inputdir', default=None,
-        help='Input diretory.'
-    )
+                       help='Input directory.')
     parser.add_argument('-o', '--outputdir', required=True,
-        help='Output directory'
-    )
+                        help='Output directory'
+                        )
     parser.add_argument('-m', '--metadata',
-        default='metadata.json',
-        help='Metadata json file. Default: %(default)s'
-    )
+                        default='metadata.json',
+                        help='Metadata json file. Default: %(default)s'
+                        )
     parser.add_argument('--extra-transfer',
-        default=None,
-        help='Extra files to transfer, common separated list. Default: %(default)s'
-    )
+                        default=None,
+                        help='Extra files to transfer, common separated list. Default: %(default)s'
+                        )
     parser.add_argument('--tarball-suffix',
-        default='',
-        help='Suffix of the CMSSW tarball. Default: %(default)s'
-    )
+                        default='',
+                        help='Suffix of the CMSSW tarball. Default: %(default)s'
+                        )
     parser.add_argument('-t', '--submittype',
-        default='condor', choices=['interactive', 'condor'],
-        help='Method of job submission. [Default: %(default)s]'
-    )
+                        default='condor', choices=['interactive', 'condor'],
+                        help='Method of job submission. [Default: %(default)s]'
+                        )
     parser.add_argument('--resubmit',
-        action='store_true', default=False,
-        help='Resubmit failed jobs. Default: %(default)s'
-    )
+                        action='store_true', default=False,
+                        help='Resubmit failed jobs. Default: %(default)s'
+                        )
     parser.add_argument('-j', '--jobdir',
-        default='jobs',
-        help='Directory for job files. [Default: %(default)s]'
-    )
+                        default='jobs',
+                        help='Directory for job files. [Default: %(default)s]'
+                        )
     parser.add_argument('-d', '--datasets', required=False,
-        default='',
-        help='Path to the dataset list file. [Default: %(default)s]'
-    )
+                        default='',
+                        help='Path to the dataset list file. [Default: %(default)s]'
+                        )
     parser.add_argument('--select',
-        default='',
-        help='Selected datasets, common separated regex. [Default: %(default)s]'
-    )
+                        default='',
+                        help='Selected datasets, common separated regex. [Default: %(default)s]'
+                        )
     parser.add_argument('--ignore',
-        default='',
-        help='Ignored datasets, common separated regex. [Default: %(default)s]'
-    )
+                        default='',
+                        help='Ignored datasets, common separated regex. [Default: %(default)s]'
+                        )
 #     parser.add_argument('--nproc',
 #         type=int, default=8,
 #         help='Number of jobs to run in parallel. Default: %(default)s'
 #     )
     parser.add_argument('-n', '--nfiles-per-job',
-        type=int, default=10,
-        help='Number of input files to process in one job. Default: %(default)s'
-    )
+                        type=int, default=10,
+                        help='Number of input files to process in one job. Default: %(default)s'
+                        )
     parser.add_argument('--dryrun',
-        action='store_true', default=False,
-        help='Do not convert -- only produce metadata. Default: %(default)s'
-    )
+                        action='store_true', default=False,
+                        help='Do not convert -- only produce metadata. Default: %(default)s'
+                        )
     parser.add_argument('--site',
-        default='',
-        help='Specify sites for condor submission. Default: %(default)s'
-    )
-    parser.add_argument('--condor-extras',
-        default='',
-        help='Extra parameters for condor, e.g., +AccountingGroup = "group_u_CMST3.all". Default: %(default)s'
-    )
+                        default='',
+                        help='Specify sites for condor submission. Default: %(default)s'
+                        )
+    parser.add_argument(
+        '--condor-extras', default='',
+        help='Extra parameters for condor, e.g., +AccountingGroup = "group_u_CMST3.all". Default: %(default)s')
     parser.add_argument('--max-runtime',
-        default='24*60*60',
-        help='Max runtime, in seconds. Default: %(default)s'
-    )
+                        default='24*60*60',
+                        help='Max runtime, in seconds. Default: %(default)s'
+                        )
     parser.add_argument('--request-memory',
-        default='2000',
-        help='Request memory, in MB. Default: %(default)s'
-    )
-    parser.add_argument('--add-weight',
-        action='store_true', default=False,
-        help='Merge output files of the same dataset and add cross section weight using the file specified in --weight-file. Default: %(default)s'
-    )
+                        default='2000',
+                        help='Request memory, in MB. Default: %(default)s'
+                        )
+    parser.add_argument(
+        '--add-weight', action='store_true', default=False,
+        help='Merge output files of the same dataset and add cross section weight using the file specified in --weight-file. Default: %(default)s')
     parser.add_argument('-w', '--weight-file',
-        default='samples/xsec_2017.conf',
-        help='File with xsec of each sample. If empty, xsec wgt will not be added. Default: %(default)s'
-    )
-    parser.add_argument('--merge',
-        action='store_true', default=False,
-        help='Merge output files of different sample as specified in --datasets file. Default: %(default)s'
-    )
+                        default='samples/xsec.conf',
+                        help='File with xsec of each sample. If empty, xsec wgt will not be added. Default: %(default)s'
+                        )
+    parser.add_argument(
+        '--merge', action='store_true', default=False,
+        help='Merge output files of different sample as specified in --datasets file. Default: %(default)s')
     parser.add_argument('--post',
-        action='store_true', default=False,
-        help='Add weight and merge. Default: %(default)s'
-    )
-    parser.add_argument('--batch',
-        action='store_true', default=False,
-        help='Batch mode, do not ask for confirmation and submit the jobs directly. Default: %(default)s'
-    )
+                        action='store_true', default=False,
+                        help='Add weight and merge. Default: %(default)s'
+                        )
+    parser.add_argument(
+        '--batch', action='store_true', default=False,
+        help='Batch mode, do not ask for confirmation and submit the jobs directly. Default: %(default)s')
+    parser.add_argument(
+        '--use-tmpdir', action='store_true', default=False,
+        help='Merge files to a temporary directory and then copy to the destination. The tmp dir can be set via `TMPDIR`, or default to `/tmp/$USER`. Default: %(default)s')
 
     # preserve the options in nano_postproc.py
-    parser.add_argument("-s", "--postfix", dest="postfix", default=None, help="Postfix which will be appended to the file name (default: _Friend for friends, _Skim for skims)")
+    parser.add_argument(
+        "-s", "--postfix", dest="postfix", default=None,
+        help="Postfix which will be appended to the file name (default: _Friend for friends, _Skim for skims)")
     parser.add_argument("-J", "--json", dest="json", default=None, help="Select events using this JSON file")
     parser.add_argument("-c", "--cut", dest="cut", default=None, help="Cut string")
-    parser.add_argument("--bi", "--branch-selection-input", dest="branchsel_in", default='keep_and_drop_input.txt', help="Branch selection input")
-    parser.add_argument("--bo", "--branch-selection-output", dest="branchsel_out", default='keep_and_drop_output.txt', help="Branch selection output")
-    parser.add_argument("--friend", dest="friend", action="store_true", default=False, help="Produce friend trees in output (current default is to produce full trees)")
-    parser.add_argument("-I", "--import", dest="imports", default=[], action="append", nargs=2, help="Import modules (python package, comma-separated list of ")
-    parser.add_argument("-z", "--compression", dest="compression", default=("LZ4:4"), help="Compression: none, or (algo):(level) ")
-    parser.add_argument("-P", "--prefetch", dest="prefetch", action="store_true", default=False, help="Prefetch input files locally instead of accessing them via xrootd")
-    parser.add_argument("--long-term-cache", dest="longTermCache", action="store_true", default=False, help="Keep prefetched files across runs instead of deleting them at the end")
-    parser.add_argument("-N", "--max-entries", dest="maxEntries", type=int, default=None, help="Maximum number of entries to process from any single given input tree")
-    parser.add_argument("--first-entry", dest="firstEntry", type=int, default=0, help="First entry to process in the three (to be used together with --max-entries)")
-    parser.add_argument("--justcount", dest="justcount", default=False, action="store_true", help="Just report the number of selected events")
+    parser.add_argument("--bi", "--branch-selection-input", dest="branchsel_in",
+                        default='keep_and_drop_input.txt', help="Branch selection input")
+    parser.add_argument("--bo", "--branch-selection-output", dest="branchsel_out",
+                        default='keep_and_drop_output.txt', help="Branch selection output")
+    parser.add_argument("--friend", dest="friend", action="store_true", default=False,
+                        help="Produce friend trees in output (current default is to produce full trees)")
+    parser.add_argument("-I", "--import", dest="imports", default=[], action="append", nargs=2,
+                        help="Import modules (python package, comma-separated list of ")
+    parser.add_argument("-z", "--compression", dest="compression", default=("LZ4:4"),
+                        help="Compression: none, or (algo):(level) ")
+    parser.add_argument("-P", "--prefetch", dest="prefetch", action="store_true", default=False,
+                        help="Prefetch input files locally instead of accessing them via xrootd")
+    parser.add_argument("--long-term-cache", dest="longTermCache", action="store_true", default=False,
+                        help="Keep prefetched files across runs instead of deleting them at the end")
+    parser.add_argument("-N", "--max-entries", dest="maxEntries", type=int, default=None,
+                        help="Maximum number of entries to process from any single given input tree")
+    parser.add_argument("--first-entry", dest="firstEntry", type=int, default=0,
+                        help="First entry to process in the three (to be used together with --max-entries)")
+    parser.add_argument("--justcount", dest="justcount", default=False, action="store_true",
+                        help="Just report the number of selected events")
 
     return parser
 
 
 def run(args, configs=None):
     logging.info('Running w/ config: %s' % configs)
+
+    import socket
+    host = socket.getfqdn()
+    if 'cern.ch' in host:
+        args.use_tmpdir = True
 
     if args.post:
         args.add_weight = True
@@ -752,6 +1042,7 @@ def run(args, configs=None):
 if __name__ == '__main__':
     parser = get_arg_parser()
     args = parser.parse_args()
+
 #     print(args)
 
     run(args)

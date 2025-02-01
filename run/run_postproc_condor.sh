@@ -1,4 +1,7 @@
-#!/bin/bash
+#!/bin/bash -xe
+
+alias python=python3;
+wget https://raw.githubusercontent.com/cms-nanoAOD/nanoAOD-tools/master/scripts/haddnano.py;
 
 workdir=`pwd`
 
@@ -8,6 +11,13 @@ echo "args: $@"
 ls -l
 
 jobid=$1
+echo "jobid: $jobid"
+proxy_path=$2
+echo "proxy_path: $proxy_path"
+
+proxy_file=$(basename $proxy_path)
+export X509_USER_PROXY=$workdir/$proxy_file
+voms-proxy-info --all
 
 source /cvmfs/cms.cern.ch/cmsset_default.sh
 tar -xf CMSSW*.tar.gz --warning=no-timestamp
@@ -16,19 +26,19 @@ tar -xf CMSSW*.tar.gz --warning=no-timestamp
 #Keep track of release sandbox version
 basedir=$PWD
 rel=$(echo CMSSW_*)
-arch=$(ls $rel/.SCRAM/|grep slc) || echo "Failed to determine SL release!"
-old_release_top=$(awk -F= '/RELEASETOP/ {print $2}' $rel/.SCRAM/slc*/Environment) || echo "Failed to determine old releasetop!"
+arch=$(ls $rel/.SCRAM/|grep el) || echo "Failed to determine SL release!"
+old_release_top=$(awk -F= '/RELEASETOP/ {print $2}' $rel/.SCRAM/el*/Environment) || echo "Failed to determine old releasetop!"
  
 # Creating new release
 # This is done so e.g CMSSW_BASE and other variables are not hardcoded to the sandbox setting paths
 # which will not exist here
  
 echo ">>> creating new release $rel"
-mkdir tmp
+mkdir -p tmp
 cd tmp
 export SCRAM_ARCH="$arch"
 scramv1 project -f CMSSW $rel
-new_release_top=$(awk -F= '/RELEASETOP/ {print $2}' $rel/.SCRAM/slc*/Environment)
+new_release_top=$(awk -F= '/RELEASETOP/ {print $2}' $rel/.SCRAM/el*/Environment)
 cd $rel
 echo ">>> preparing sandbox release $rel"
  
@@ -52,9 +62,10 @@ ls -l
 
 export MLAS_DYNAMIC_CPU_ARCH=99
 export TMPDIR=`pwd`
-python processor.py $jobid
+python3 processor.py $jobid
 status=$?
 
-ls -l
+touch ${workdir}/done.cc
+ls -l ${workdir}
 
 exit $status

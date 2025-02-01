@@ -13,8 +13,7 @@ default_config = {'sfbdt_threshold': -99,
                   'run_tagger': False, 'tagger_versions': ['V02b', 'V02c', 'V02d'],
                   'run_mass_regression': False, 'mass_regression_versions': ['V01a', 'V01b', 'V01c'],
                   'jec': False, 'jes': None, 'jes_source': '', 'jes_uncertainty_file_prefix': '',
-                  'jer': 'nominal', 'jmr': None, 'met_unclustered': None, 'smearMET': False, 'applyHEMUnc': False,
-                  'jesr_extra_br': True}
+                  'jer': 'nominal', 'jmr': None, 'met_unclustered': None, 'smearMET': False, 'applyHEMUnc': False}
 
 cut_dict_ak8 = {
     'photon': 'Sum$(Photon_pt>200 && Photon_cutBased>=2 && Photon_electronVeto)>0 && nFatJet>0',
@@ -23,8 +22,6 @@ cut_dict_ak8 = {
     'diboson': '(Sum$(Electron_pt>20 && abs(Electron_eta)<2.5 && abs(Electron_dxy)<0.05 && abs(Electron_dz)<0.2 && Electron_mvaFall17V2noIso_WP90 && Electron_miniPFRelIso_all<0.4) >= 2 ||'
                ' Sum$(Muon_pt>20 && abs(Muon_eta)<2.4 && abs(Muon_dxy)<0.05 && abs(Muon_dz)<0.2 && Muon_looseId && Muon_miniPFRelIso_all<0.4) >= 2) && nFatJet>0',
     'inclusive': 'Sum$((Jet_pt>25 && abs(Jet_eta)<2.4 && (Jet_jetId & 2)) * Jet_pt)>300 && Sum$(FatJet_subJetIdx1>=0 && FatJet_subJetIdx2>=0 && FatJet_msoftdrop>10)>0',
-    'higgs': 'nFatJet>0',
-    'mutagged': 'Sum$((Jet_pt>25 && abs(Jet_eta)<2.4 && (Jet_jetId & 2)) * Jet_pt)>200 && nFatJet>0',
 }
 cut_dict_ak15 = {
     'photon': 'Sum$(Photon_pt>200 && Photon_cutBased>=2 && Photon_electronVeto)>0 && nAK15Puppi>0',
@@ -36,10 +33,14 @@ cut_dict_ak15 = {
 }
 
 golden_json = {
-    2015: 'Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt',
-    2016: 'Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt',
-    2017: 'Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt',
-    2018: 'Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt',
+    "2015": 'Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt',
+    "2016": 'Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt',
+    "2017": 'Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt',
+    "2018": 'Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt',
+    "2022": 'Cert_Collisions2022_355100_362760_Golden.json',
+    "2022EE": 'Cert_Collisions2022_355100_362760_Golden.json',
+    "2023": 'Cert_Collisions2023_366442_370790_Golden.json', 
+    "2023BPix": 'Cert_Collisions2023_366442_370790_Golden.json', 
 }
 
 
@@ -56,27 +57,42 @@ def _process(args):
             default_config['mass_regression_versions'] = ['ak8V01a', 'ak8V01b', 'ak8V01c']
         logging.info('Will run mass regression version(s): %s' % ','.join(default_config['mass_regression_versions']))
 
-    year = int(args.year)
+    try:
+        year_int = int(args.year)
+    except ValueError:
+        # e.g. 2022EE
+        year_int = int(args.year[:4])
+    year = args.year
     channel = args.channel
     default_config['year'] = year
     default_config['channel'] = channel
-    if channel in ('qcd', 'photon', 'higgs'):
+    if channel in ('qcd', 'photon'):
         default_config['sfbdt_threshold'] = args.sfbdt
-
-    if year in (2017, 2018):
+    if year_int in (2017, 2018):
         args.weight_file = 'samples/xsec_2017.conf'
+    elif year_int >= 2022:
+        # args.weight_file = 'samples/xsec_run3.py'
+        # args.weight_file = 'samples/xsec_run3_ParT.json'
+        pass
+    else:
+        raise RuntimeError('Year not supported: %s' % year)
+    logging.info(f"year={year}, weight_file={args.weight_file}")
 
     basename = os.path.basename(args.outputdir) + '_' + args.jet_type + '_' + channel + '_' + str(year)
     args.outputdir = os.path.join(os.path.dirname(args.outputdir), basename, 'data' if args.run_data else 'mc')
     args.jobdir = os.path.join('jobs_%s' % basename, 'data' if args.run_data else 'mc')
 
     if args.run_data:
-        args.datasets = '%s/%s_%d_DATA.yaml' % (args.sample_dir, channel, year)
+        if args.datasets is None or args.datasets == '':
+            args.datasets = '%s/%s_%s_DATA.yaml' % (args.sample_dir, channel, year)
+        logging.info('Using data sample list: %s' % args.datasets)
         args.extra_transfer = os.path.expandvars(
             '$CMSSW_BASE/src/PhysicsTools/NanoHRTTools/data/JSON/%s' % golden_json[year])
         args.json = golden_json[year]
     else:
-        args.datasets = '%s/%s_%d_MC.yaml' % (args.sample_dir, channel, year)
+        if args.datasets is None or args.datasets == '':
+            args.datasets = '%s/%s_%s_MC.yaml' % (args.sample_dir, channel, year)
+        logging.info('Using MC sample list: %s' % args.datasets)
 
     if args.jet_type == 'ak15':
         args.cut = cut_dict_ak15[channel]
@@ -86,7 +102,7 @@ def _process(args):
     args.imports = [('PhysicsTools.NanoHRTTools.producers.HeavyFlavSFTreeProducer', 'heavyFlavSFTreeFromConfig')]
     if not args.run_data:
         args.imports.extend([('PhysicsTools.NanoAODTools.postprocessing.modules.common.puWeightProducer',
-                              'puWeight_UL2016' if year == 2015 else 'puWeight_UL%d' % year),
+                              'puWeight_UL2016' if year == "2015" else 'puWeight_UL%s' % year),
                              ('PhysicsTools.NanoHRTTools.producers.topPtWeightProducer', 'topPtWeight')])
 
     # data, or just nominal MC
@@ -181,7 +197,7 @@ def main():
     parser.add_argument('--year',
                         type=str,
                         required=True,
-                        help='Year: 2015 (2016 preVFP), 2016 (2016 postVFP), 2017, 2018, or comma separated list e.g., `2016,2017,2018`'
+                        help='Year: 2015 (2016 preVFP), 2016 (2016 postVFP), 2017, 2018, 2022, 2022EE, 2023, 2023BPix, or comma separated list e.g., `2016,2017,2018`'
                         )
 
     parser.add_argument('--sample-dir',
@@ -218,10 +234,12 @@ def main():
                     opts.nfiles_per_job *= 2
                 if opts.inputdir:
                     opts.inputdir = opts.inputdir.rstrip('/').replace('_YEAR_', year)
-                    assert(year in opts.inputdir)
-                    if opts.inputdir.rsplit('/', 1)[1] not in ['data', 'mc']:
-                        opts.inputdir = os.path.join(opts.inputdir, cat)
-                    assert(opts.inputdir.endswith(cat))
+                    if not args.datasets:
+                        # Automatically decided
+                        assert(year in opts.inputdir)
+                        if opts.inputdir.rsplit('/', 1)[1] not in ['data', 'mc']:
+                            opts.inputdir = os.path.join(opts.inputdir, cat)
+                        assert(opts.inputdir.endswith(cat))
                 opts.year = year
                 opts.channel = chn
                 logging.info('inputdir=%s, year=%s, channel=%s, cat=%s, syst=%s', opts.inputdir, opts.year,

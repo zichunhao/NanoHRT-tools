@@ -51,7 +51,11 @@ class QCDSampleProducer(HeavyFlavBaseProducer):
         self.fillBaseEventInfo(event)
         self.fillFatJetInfo(event, probe_jets)
 
-        if self.year <= 2016:
+        if isinstance(self.year, str):
+            year = int(self.year[:4])
+        else:
+            year = self.year
+        if year <= 2016:
             self.out.fillBranch("passHTTrig", event.HLT_PFHT900)
         else:
             self.out.fillBranch("passHTTrig", event.HLT_PFHT1050)

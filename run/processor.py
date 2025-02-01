@@ -22,10 +22,13 @@ def xrd_prefix(filepaths):
     filepath = filepaths[0]
     if filepath.startswith('/eos/cms'):
         prefix = 'root://eoscms.cern.ch/'
+        allow_prefetch = True
     elif filepath.startswith('/eos/user'):
         prefix = 'root://eosuser.cern.ch/'
+        allow_prefetch = True
     elif filepath.startswith('/eos/uscms'):
         prefix = 'root://cmseos.fnal.gov/'
+        allow_prefetch = True
     elif filepath.startswith('/store/'):
         # remote file
         import socket
@@ -34,6 +37,8 @@ def xrd_prefix(filepaths):
             prefix = 'root://xrootd-cms.infn.it//'
         else:
             prefix = 'root://cmsxrootd.fnal.gov//'
+        allow_prefetch = True
+    elif filepath.startswith('root://'):
         allow_prefetch = True
     expanded_paths = [(prefix + '/' + f if prefix else f) for f in filepaths]
     return expanded_paths, allow_prefetch
@@ -94,10 +99,16 @@ def main(args):
     p.run()
 
     # hadd files
-    p = subprocess.Popen('haddnano.py %s *.root' % outputname, shell=True)
-    p.communicate()
+    p = subprocess.Popen(
+        'alias python=python3; python3 ./haddnano.py %s *.root' % outputname, 
+        shell=True, 
+        stdout=subprocess.PIPE, 
+        stderr=subprocess.PIPE, 
+        text=True
+    )
+    stdout, stderr = p.communicate()
     if p.returncode != 0:
-        raise RuntimeError('Hadd failed!')
+        raise RuntimeError(f'Hadd failed with error message: {stderr.strip()}')
 
     # keep only the hadd file
     for f in os.listdir('.'):
