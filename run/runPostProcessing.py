@@ -373,10 +373,7 @@ def create_metadata_from_json(args):
                         pass
                 else:
                     # Use stripped remote files
-                    if len(filelist) > 0:
-                        md["inputfiles"][samp_tag] = sorted(filelist)
-                    else:
-                        pass
+                    md["inputfiles"][samp_tag] = sorted(filelist)
 
     # sort the samples
     md['samples'] = sorted(md['samples'])
